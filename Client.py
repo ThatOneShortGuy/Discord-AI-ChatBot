@@ -101,4 +101,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=False)
+    client.run(token, bot=True)
