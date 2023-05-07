@@ -4,7 +4,7 @@ import torch
 
 tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True)
 # model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True).half().quantize(8).cuda()
-model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, device_map='auto').half()
+model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, offload_folder='offload', device_map='auto').half()
 
 
 model = model.eval()

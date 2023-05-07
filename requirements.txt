@@ -1,2 +1,6 @@
 transformers
 discord.py==1.7.3
+markdownify
+cpm_kernels
+icetk
+accelerate

@@ -8,4 +8,4 @@ sudo apt install python3-pip
 cd Discord-AI-Chatbot
 
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.4.2
-pip install -r requirements.txt
+pip3 install -r requirements.txt
