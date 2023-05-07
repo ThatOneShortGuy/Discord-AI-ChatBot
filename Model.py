@@ -58,7 +58,7 @@ def predict(input, max_length, top_p, temperature):
         yield markdownify.markdownify(response, heading_style="ATX", bullets="-")
 
 def summarize(input, max_length):
-    input = 'Pretend you are an AI that summarizes a conversation. Summarize the following conversation:\n\n' + input + '\n\nPlease summarize the conversation in as few words as possible.'
+    input = 'Pretend you are an AI named ChatGLM that summarizes a conversation. Summarize the following conversation:\n\n' + input + '\n\nPlease summarize the conversation in as few words as possible.'
     for response in predict(input, max_length, top_p, temperature):
         yield response
     
