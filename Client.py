@@ -6,7 +6,7 @@ import Model as m
 
 if os.path.exists('token.txt'):
     with open('token.txt', 'r') as f:
-        token = f.read()
+        token = f.readline().strip()
 else:
     token = input('Enter your token:\n')
     cache_token = input('Cache token for future use? (y/n)\n').lower()
@@ -101,4 +101,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=True)
+    client.run(token, bot=False)
