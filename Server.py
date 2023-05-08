@@ -1,8 +1,12 @@
-import discord
 import os
 import re
+import time
+from collections import deque 
+
+import discord
 import torch
-import Model as m
+
+import ChatGLM_Model as m
 
 if os.path.exists('token.txt'):
     with open('token.txt', 'r') as f:
@@ -37,15 +41,18 @@ commands = [r'(?P<command>help)',
 class myClient(discord.Client):
     async def on_ready(self):
         print(f'Logged on as {self.user} ({self.user.mention})')
+        self.terminal_size = os.get_terminal_size()[0]
+        self.message_time_queue = deque(maxlen=12)
 
     async def format_messages(self, content, message, n, n2='0'):
         if not n.isdigit():
             return
         n2 = int(n2) if isinstance(n2, str) and n2.isdigit() else 0
-        sent_message = await message.channel.send('Working on it...')
         sent_message_content = ''
         messages = message.channel.history(limit=int(n)+1)
         messages = (await messages.flatten())[:n2:-1]
+        sent_message = await message.channel.send('Working on it...')
+        self.message_time_queue.append(time.time())
         for message in messages:
             content = message.content
             for user in message.mentions:
@@ -55,10 +62,15 @@ class myClient(discord.Client):
         return sent_message, sent_message_content
 
     async def send_message(self, generator, sent_message):
+        t = time.time()
         for i, response in enumerate(generator):
-            if response and i != 0 and i % 6 == 0 and not self.is_ws_ratelimited():
+            if response and time.time() - t > 1.5 and len(self.message_time_queue) < self.message_time_queue.maxlen:
+                t = time.time()
                 await sent_message.edit(content=response)
-            print(response, end='\r\r')
+                self.message_time_queue.append(time.time())
+            while len(self.message_time_queue) and time.time() - self.message_time_queue[0] < 60:
+                self.message_time_queue.popleft()
+            print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
         return await sent_message.edit(content=response)
 
     async def on_message(self, message):
@@ -91,6 +103,7 @@ class myClient(discord.Client):
         if command == 'act_like':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
+            username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(m.act_like(sent_message_content, username, 2048), sent_message)
 
     def get_matching_command(self, content):
@@ -101,4 +114,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=False)
+    client.run(token, bot=True)

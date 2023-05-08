@@ -1,11 +1,13 @@
-from transformers import AutoModel, AutoTokenizer
+import os
+
 import markdownify
 import torch
+from transformers import AutoModel, AutoTokenizer
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True)
-# model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True).half().quantize(8).cuda()
-model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, offload_folder='offload', device_map='auto').half()
-
+model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, device_map='sequential').half()
 
 model = model.eval()
 
@@ -52,7 +54,8 @@ def predict(input, max_length, top_p, temperature):
     input = parse_text(input)
     tokenized_input = tokenizer.encode(input, return_tensors="pt")
     if tokenized_input.shape[1] > max_length:
-        return f"Input is too long. It has {tokenized_input.shape[1]} tokens, but the maximum is {max_length} tokens. Please shorten the input and try again."
+        yield f"Input is too long. It has {tokenized_input.shape[1]} tokens, but the maximum is {max_length} tokens. Please shorten the input and try again."
+        return
     for response, history in model.stream_chat(tokenizer, input, None, max_length=max_length, top_p=top_p,
                                                temperature=temperature):
         yield markdownify.markdownify(response, heading_style="ATX", bullets="-")
