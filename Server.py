@@ -58,7 +58,7 @@ class myClient(discord.Client):
             for user in message.mentions:
                 content = re.sub(f'<@!?{user.id}>', user.name, content)
             
-            sent_message_content += f'{str(message.author)[:-5]}: {content}\n\n'
+            sent_message_content += f'{str(message.author)[:-5]}: {content}\n'
         return sent_message, sent_message_content
 
     async def send_message(self, generator, sent_message):
@@ -114,4 +114,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=True)
+    client.run(token, bot=False)
