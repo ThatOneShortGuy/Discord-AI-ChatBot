@@ -7,7 +7,7 @@ from transformers import AutoModel, AutoTokenizer
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True)
-model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, device_map='sequential').half()
+model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, torch_dtype='auto').cuda().half().quantize(4)
 
 model = model.eval()
 
@@ -52,6 +52,7 @@ def parse_text(text):
 def predict(input, max_length, top_p, temperature):
     torch.cuda.empty_cache()
     input = parse_text(input)
+    yield input
     tokenized_input = tokenizer.encode(input, return_tensors="pt")
     if tokenized_input.shape[1] > max_length:
         yield f"Input is too long. It has {tokenized_input.shape[1]} tokens, but the maximum is {max_length} tokens. Please shorten the input and try again."
@@ -67,6 +68,11 @@ def summarize(input, max_length):
     
 def query(input, query, max_length):
     input = f'Answer the following question "{query}" based on the following conversation:\n\n{input}\n\nPlease answer the question "{query}" in as few words as possible.'
+    for response in predict(input, max_length, top_p, temperature):
+        yield response
+
+def response(history, input, max_length):
+    input = f'Pretend you are an AI named ChatGLM that responds to a conversation. Respond to the following conversation:\n\n{input}\n\nPlease respond to the conversation in as few words as possible.'
     for response in predict(input, max_length, top_p, temperature):
         yield response
     

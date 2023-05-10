@@ -5,11 +5,12 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-tokenizer = AutoTokenizer.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5")
-model = AutoModelForCausalLM.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", device_map='auto', torch_dtype=torch.bfloat16).half()
+tokenizer = AutoTokenizer.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", padding_size='left')
+# model = AutoModelForCausalLM.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", device_map='auto', torch_dtype=torch.bfloat16).half()
+model = AutoModelForCausalLM.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", device_map='auto', load_in_8bit=True, llm_int8_threshold=0)
 
 # tokenizer = AutoTokenizer.from_pretrained("bigscience/bloom-560m")
-# model = AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m", device_map='sequential', torch_dtype=torch.bfloat16).half()
+# model = AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m", device_map='sequential', load_in_8bit=True, llm_int8_threshold=0)
 
 model = model.eval()
 
@@ -46,8 +47,9 @@ def stream_chat(tokenizer, system_input, prefix_input, input, history, max_lengt
     prefix = Prefix(prefix_input)
     prompter = Prompter(input)
     assistant = Assistant(history)
-    input = f'{system}{prefix}{prompter}{assistant.prefix}'
-    print(f"\tInput\n{'-'*20}\n{input}")
+    input = f'{system}{prefix}{history if history else ""}{prompter}{assistant.prefix}'
+    print(f"\tInput\n{'-'*22}\n{input}")
+    yield input
     output_sequence = tokenizer.encode(input, return_tensors="pt").to(model.device)
     init_length = output_sequence.shape[1]
     attention_mask = torch.ones_like(output_sequence, dtype=torch.bool)
@@ -72,8 +74,6 @@ def stream_chat(tokenizer, system_input, prefix_input, input, history, max_lengt
             break
         yield tokenizer.decode(output_sequence[0][init_length:].tolist())
 
-model.stream_chat = stream_chat
-
 def predict(system, prefix, input, max_length, top_p, temperature, history=None):
     torch.cuda.empty_cache()
     test_size = f'{System(system)}{Prefix(prefix)}{Prompter(input)}{Assistant(history).prefix}'
@@ -81,7 +81,7 @@ def predict(system, prefix, input, max_length, top_p, temperature, history=None)
     if test_size > 2048:
         yield f"Input is too long. It has {test_size} tokens, but the maximum is {2048} tokens. Please shorten the input and try again." # 2048 in f-string because increased visibility
         return
-    for response in model.stream_chat(tokenizer, system, prefix, input, history, max_length=max_length, top_p=top_p,
+    for response in stream_chat(tokenizer, system, prefix, input, history, max_length=max_length, top_p=top_p,
                                                temperature=temperature):
         yield response
 
@@ -94,6 +94,10 @@ def summarize(prefix: str, max_length):
 def query(conversation, query, max_length):
     system = "You are an AI named ChatGLM that answers questions based on a conversation in as few words as possible."
     for response in predict(system, conversation, query, max_length, top_p, temperature):
+        yield response
+
+def response(history, input, max_length):
+    for response in predict(None, None, input, max_length, top_p, temperature, history):
         yield response
     
 def prompt(input, max_length):

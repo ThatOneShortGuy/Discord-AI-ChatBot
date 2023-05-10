@@ -29,12 +29,14 @@ help_text = """Commands:
     `help` - display this message
     `summarize <n> [n2]` - summarize the last n messages, optionally skipping the last n2 messages
     `query <n> [n2] <...>` - query the chatbot with the given text, optionally skipping the last n2 messages. Ex: `query 10 2 What conclusions can we draw from this?`
+    `response <...>` - respond to the chatbot with the given text
     `prompt <...>` - prompt the bare chatbot with the given text
     `act_like <user_name> <n> [n2]` - act like the user with the given name and respond as them. n is the number of messages for context, optionally skipping the last n2 messages
     """
 commands = [r'(?P<command>help)',
             r'(?P<command>summarize)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>query)\s+(?P<n>\d+)(?:\s+(?P<n2>\d+))?\s+(?P<text>.+)',
+            r'(?P<command>response)\s+(?P<text>.+)',
             r'(?P<command>prompt)\s+(?P<text>.+)',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',]
 
@@ -43,6 +45,7 @@ class myClient(discord.Client):
         print(f'Logged on as {self.user} ({self.user.mention})')
         self.terminal_size = os.get_terminal_size()[0]
         self.message_time_queue = deque(maxlen=12)
+        self.conversation_history = {} # {channel_id: conversation}
 
     async def format_messages(self, content, message, n, n2='0'):
         if not n.isdigit():
@@ -63,7 +66,8 @@ class myClient(discord.Client):
 
     async def send_message(self, generator, sent_message):
         t = time.time()
-        for i, response in enumerate(generator):
+        self.conversation_history[sent_message.channel.id] = next(generator)
+        for response in generator:
             if response and time.time() - t > 1.5 and len(self.message_time_queue) < self.message_time_queue.maxlen:
                 t = time.time()
                 await sent_message.edit(content=response)
@@ -71,6 +75,7 @@ class myClient(discord.Client):
             while len(self.message_time_queue) and time.time() - self.message_time_queue[0] < 60:
                 self.message_time_queue.popleft()
             print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
+        self.conversation_history[sent_message.channel.id] += f'{response}{m.tokenizer.eos_token}'
         return await sent_message.edit(content=response)
 
     async def on_message(self, message):
@@ -97,6 +102,10 @@ class myClient(discord.Client):
         if command == 'query':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             return await self.send_message(m.query(sent_message_content, mat.group('text'), 2048), sent_message)
+        if command == 'response':
+            sent_message = await message.channel.send('Working on it...')
+            history = self.conversation_history[sent_message.channel.id] if sent_message.channel.id in self.conversation_history else None
+            return await self.send_message(m.response(history, mat.group('text'), 2048+512), sent_message)
         if command == 'prompt':
             sent_message = await message.channel.send('Working on it...')
             return await self.send_message(m.prompt(mat.group('text'), 2048), sent_message)
