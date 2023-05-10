@@ -7,7 +7,7 @@ from transformers import AutoModel, AutoTokenizer
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True)
-model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, torch_dtype='auto').cuda().half().quantize(4)
+model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, torch_dtype='auto', device_map='sequential').half()
 
 model = model.eval()
 
@@ -77,6 +77,11 @@ def response(history, input, max_length):
         yield response
     
 def prompt(input, max_length):
+    for response in predict(input, max_length, top_p, temperature):
+        yield response
+
+def roast(input, person, max_length):
+    input = f'Pretend you are an AI in a roast battle with "{person}". Use the infomation given to roast "{person}".\n\n{input}\n\nPlease roast "{person}". They wanted to be roasted.'
     for response in predict(input, max_length, top_p, temperature):
         yield response
     

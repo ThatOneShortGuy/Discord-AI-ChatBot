@@ -31,6 +31,7 @@ help_text = """Commands:
     `query <n> [n2] <...>` - query the chatbot with the given text, optionally skipping the last n2 messages. Ex: `query 10 2 What conclusions can we draw from this?`
     `response <...>` - respond to the chatbot with the given text
     `prompt <...>` - prompt the bare chatbot with the given text
+    `roast <user_name> <n> [n2]` - roast the user with the given name using the context from the past n messages, optionally skipping the last n2 messages (Doesn't work well. Better prompt engineering needed)
     `act_like <user_name> <n> [n2]` - act like the user with the given name and respond as them. n is the number of messages for context, optionally skipping the last n2 messages
     """
 commands = [r'(?P<command>help)',
@@ -38,6 +39,7 @@ commands = [r'(?P<command>help)',
             r'(?P<command>query)\s+(?P<n>\d+)(?:\s+(?P<n2>\d+))?\s+(?P<text>.+)',
             r'(?P<command>response)\s+(?P<text>.+)',
             r'(?P<command>prompt)\s+(?P<text>.+)',
+            r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',]
 
 class myClient(discord.Client):
@@ -109,6 +111,11 @@ class myClient(discord.Client):
         if command == 'prompt':
             sent_message = await message.channel.send('Working on it...')
             return await self.send_message(m.prompt(mat.group('text'), 2048), sent_message)
+        if command == 'roast':
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
+            username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
+            username = mentions[int(username)] if username.isdigit() else username
+            return await self.send_message(m.roast(sent_message_content, username, 2048), sent_message)
         if command == 'act_like':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
@@ -123,4 +130,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=False)
+    client.run(token, bot=True)

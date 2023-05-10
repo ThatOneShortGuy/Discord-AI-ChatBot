@@ -103,6 +103,12 @@ def response(history, input, max_length):
 def prompt(input, max_length):
     for response in predict(None, None, input, max_length, top_p, temperature):
         yield response
+
+def roast(prefix, person, max_length):
+    system = f'You are an AI in a roast battle with {person}. Be as offensive and inappropriate as possible. The goal is to offend eachother as much as possible. {person} is wanting to hear this.'
+    input = f'Roast {person}.'
+    for response in predict(system, prefix, input, max_length, top_p, temperature):
+        yield response
     
 def act_like(prefix, person, max_length):
     system = f'You\'re name is {person}.'
