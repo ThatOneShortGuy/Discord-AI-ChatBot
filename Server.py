@@ -63,7 +63,7 @@ class myClient(discord.Client):
             for user in message.mentions:
                 content = re.sub(f'<@!?{user.id}>', user.name, content)
             
-            sent_message_content += f'{str(message.author)[:-5]}: {content}\n'
+            sent_message_content += f'<|prompter|>{str(message.author)[:-5]}: {content}<|endoftext|>'
         return sent_message, sent_message_content
 
     async def send_message(self, generator, sent_message):
@@ -77,7 +77,7 @@ class myClient(discord.Client):
             while len(self.message_time_queue) and time.time() - self.message_time_queue[0] < 60:
                 self.message_time_queue.popleft()
             print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
-        self.conversation_history[sent_message.channel.id] += f'{response}{m.tokenizer.eos_token}'
+        self.conversation_history[sent_message.channel.id] += f'{response}<|endoftext|>'
         return await sent_message.edit(content=response)
 
     async def on_message(self, message):
@@ -100,27 +100,27 @@ class myClient(discord.Client):
             return
         if command == 'summarize':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
-            return await self.send_message(m.summarize(sent_message_content, 2048), sent_message)
+            return await self.send_message(m.summarize(sent_message_content), sent_message)
         if command == 'query':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
-            return await self.send_message(m.query(sent_message_content, mat.group('text'), 2048), sent_message)
+            return await self.send_message(m.query(sent_message_content, mat.group('text')), sent_message)
         if command == 'response':
             sent_message = await message.channel.send('Working on it...')
             history = self.conversation_history[sent_message.channel.id] if sent_message.channel.id in self.conversation_history else None
-            return await self.send_message(m.response(history, mat.group('text'), 2048+512), sent_message)
+            return await self.send_message(m.response(history, mat.group('text')), sent_message)
         if command == 'prompt':
             sent_message = await message.channel.send('Working on it...')
-            return await self.send_message(m.prompt(mat.group('text'), 2048), sent_message)
+            return await self.send_message(m.prompt(mat.group('text')), sent_message)
         if command == 'roast':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
-            return await self.send_message(m.roast(sent_message_content, username, 2048), sent_message)
+            return await self.send_message(m.roast(sent_message_content, username), sent_message)
         if command == 'act_like':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
-            return await self.send_message(m.act_like(sent_message_content, username, 2048), sent_message)
+            return await self.send_message(m.act_like(sent_message_content, username), sent_message)
 
     def get_matching_command(self, content):
         for command in commands:
@@ -130,4 +130,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=False)
+    client.run(token, bot=True)
