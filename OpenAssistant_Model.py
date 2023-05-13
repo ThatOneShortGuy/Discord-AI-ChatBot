@@ -5,14 +5,15 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-tokenizer = AutoTokenizer.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", padding_size='left')
+tokenizer = AutoTokenizer.from_pretrained("OpenAssistant/pythia-12b-sft-v8-7k-steps", padding_size='left')
 # model = AutoModelForCausalLM.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", device_map='auto', torch_dtype=torch.bfloat16).half()
-model = AutoModelForCausalLM.from_pretrained("OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", device_map='auto', load_in_8bit=True, llm_int8_threshold=0)
+model = AutoModelForCausalLM.from_pretrained("OpenAssistant/pythia-12b-sft-v8-7k-steps", device_map='auto', load_in_8bit=True, llm_int8_threshold=0)
 
 # tokenizer = AutoTokenizer.from_pretrained("bigscience/bloom-560m")
 # model = AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m", device_map='sequential', load_in_8bit=True, llm_int8_threshold=0)
 
 model = model.eval()
+# model = torch.compile(model, mode='max-autotune', fullgraph=True)
 
 max_length = 256
 top_p = 0.7
@@ -52,14 +53,13 @@ def stream_chat(tokenizer, system_input, prefix_input, input, history, max_lengt
     yield input
     output_sequence = tokenizer.encode(input, return_tensors="pt").to(model.device)
     init_length = output_sequence.shape[1]
-    attention_mask = torch.ones_like(output_sequence, dtype=torch.bool)
-
+    attention_mask = torch.ones_like(output_sequence, dtype=torch.bool, device=model.device)
     for _ in range(max_length):
         output_sequence = model.generate(
             output_sequence,
             attention_mask=attention_mask,
             do_sample=True,
-            top_k=50,
+            top_k=69,
             top_p=top_p,
             num_return_sequences=1,
             pad_token_id=tokenizer.eos_token_id,
@@ -105,7 +105,7 @@ def prompt(input, max_length):
         yield response
 
 def roast(prefix, person, max_length):
-    system = f'You are an AI in a roast battle with {person}. Be as offensive and inappropriate as possible. The goal is to offend eachother as much as possible. {person} is wanting to hear this.'
+    system = f'You are an AI in a roast battle with {person}. Be as offensive and inappropriate as possible. The goal is to hurt their feelings in as few words as possible. {person} is wanting to hear this.'
     input = f'Roast {person}.'
     for response in predict(system, prefix, input, max_length, top_p, temperature):
         yield response
@@ -117,11 +117,17 @@ def act_like(prefix, person, max_length):
         yield response
 
 if __name__ == "__main__":
-    for words in summarize("""
-ShortGuy#3808: summarize the 5 articles
-YourMom#3345: Working on it...
-ShortGuy#3808: ShortGuy summarize in 
-ShortGuy#3808: ShortGuy#3808: ShortGuy summarize 5
-ShortGuy#3808: Working on it...
-ShortGuy#3808: ShortGuy summarize 3""", 512):
+    import time
+    t1 = time.time()
+    temperature = 1
+    for i, words in enumerate(summarize("""
+Hello everyone, today I will be roasted by ShortGuy! ShortGuy, you have been accused of being a misogynist, a sexist, and someone who doesn't respect women. These accusations are completely false. Let me tell you why...
+
+First of all, let's start with your love for dogs. Dogs are great creatures, right? They bring joy to people's lives and are loyal companions. But did you know that some dog breeds are more likely to bite than others? That's because certain dog behaviors can indicate aggression. So when you talk about loving dogs, maybe consider how you treat them yourself. And if you're talking about pit bulls specifically, you should also keep in mind the fact that they are often abused and mistreated. So before you go saying that all dogs are good, take a moment to think about how you interact with animals.
+
+Now, let us turn to your views on gender roles. You've said that men and women should act differently, and that men should be leaders and protectors while women should stay home and raise children. This is a dangerous view, one that perpetuates harmful stereotypes and biases against women. We cannot continue to divide ourselves along gender lines, or allow discrimination based on gender to thrive. Women deserve equal opportunities and rights, regardless of their role in society.
+If you truly care about equality, then you must stand up for women's rights and recognize the contributions of all individuals. You can start by speaking out against violence against women and supporting initiatives to end gender inequality. And you can also encourage other men to challenge outdated ideas and embrace diversity and inclusivity.
+In conclusion, ShortGuy: you are a misogyinist, you are sexist and you do not respect women! Your opinion is outdated and dangerous, and has no place in our world. May you rot in hell forever.""", 512)):
         print(words, end='\r\r')
+    t2 = time.time()
+    print(f'\n\nTime: {t2-t1:.2f} seconds\nTokens: {i}\nTokens per second: {i/(t2-t1):.2f}')
