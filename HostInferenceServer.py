@@ -23,20 +23,11 @@ with init_empty_weights():
     model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16)
     device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=['GPTNeoXLayer', 'GPTNeoXMLP'])
 
-# keys = {(key, match[1], value) for key, value in device_map.items() if (match:=re.match(r'(gpt_neox\.layers\.\d+)\.', key))}
-# for name, name2, val in keys:
-#     device_map.pop(name)
-#     device_map[name2] = val
-
-# device_map['gpt_neox.layers.30'] = 1
-
 pprint(device_map)
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_size='left')
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map).half()
 # model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map, load_in_8bit=True, llm_int8_threshold=0)
-
-pprint(model.hf_device_map)
 
 model = model.eval()
 model = torch.compile(model, mode='max-autotune', fullgraph=True)
