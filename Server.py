@@ -48,6 +48,7 @@ class myClient(discord.Client):
         self.terminal_size = os.get_terminal_size()[0]
         self.message_time_queue = deque(maxlen=12)
         self.conversation_history = {} # {channel_id: conversation}
+        self.keep_history = False
 
     async def format_messages(self, content, message, n, n2='0'):
         if not n.isdigit():
@@ -68,10 +69,11 @@ class myClient(discord.Client):
 
     async def send_message(self, generator, sent_message):
         t = time.time()
-        if sent_message.channel.id not in self.conversation_history:
+        if sent_message.channel.id not in self.conversation_history or not self.keep_history:
             self.conversation_history[sent_message.channel.id] = next(generator) + '<|endoftext|>'
         else:
             self.conversation_history[sent_message.channel.id] += next(generator) + '<|endoftext|>'
+            self.keep_history = False
         for response in generator:
             if response and time.time() - t > 1.5 and len(self.message_time_queue) < self.message_time_queue.maxlen:
                 t = time.time()
@@ -88,7 +90,7 @@ class myClient(discord.Client):
         if not message.content:
             return
         content = message.content.split()
-        mentions = {user.id: user.name for user in  message.mentions}
+        mentions = {user.id: user.name for user in message.mentions}
         if content.pop(0) != self.user.mention:
             return
         if not content:
@@ -109,6 +111,7 @@ class myClient(discord.Client):
             return await self.send_message(m.query(sent_message_content, mat.group('text')), sent_message)
         if command == 'response':
             sent_message = await message.channel.send('Working on it...')
+            self.keep_history = True
             history = self.conversation_history[sent_message.channel.id] if sent_message.channel.id in self.conversation_history else None
             return await self.send_message(m.response(history, mat.group('text')), sent_message)
         if command == 'prompt':
