@@ -3,17 +3,40 @@ import socket
 
 import torch
 from flask import Flask, jsonify, request, Response
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
+from accelerate import infer_auto_device_map, init_empty_weights
+from pprint import pprint
+import re
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 
 IP_ADDR = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
 app = Flask(__name__)
 
 MODEL_NAME = "OpenAssistant/pythia-12b-sft-v8-7k-steps"
 
+config = AutoConfig.from_pretrained(MODEL_NAME)
+
+max_memory = {0: '20GB', 1: '9GB', 'cpu': '20GB'}
+
+with init_empty_weights():
+    model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16)
+    device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=['GPTNeoXLayer', 'GPTNeoXMLP'])
+
+# keys = {(key, match[1], value) for key, value in device_map.items() if (match:=re.match(r'(gpt_neox\.layers\.\d+)\.', key))}
+# for name, name2, val in keys:
+#     device_map.pop(name)
+#     device_map[name2] = val
+
+# device_map['gpt_neox.layers.30'] = 1
+
+pprint(device_map)
+
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_size='left')
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, device_map='auto', load_in_8bit=True, llm_int8_threshold=0)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map).half()
+# model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map, load_in_8bit=True, llm_int8_threshold=0)
+
+pprint(model.hf_device_map)
 
 model = model.eval()
 model = torch.compile(model, mode='max-autotune', fullgraph=True)
