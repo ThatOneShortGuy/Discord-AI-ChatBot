@@ -6,7 +6,7 @@ from collections import deque
 import discord
 import torch
 
-import OpenAssistant_Model as m
+import ChatGLM_Model as m
 
 if os.path.exists('token.txt'):
     with open('token.txt', 'r') as f:
@@ -68,7 +68,10 @@ class myClient(discord.Client):
 
     async def send_message(self, generator, sent_message):
         t = time.time()
-        self.conversation_history[sent_message.channel.id] = next(generator)
+        if sent_message.channel.id not in self.conversation_history:
+            self.conversation_history[sent_message.channel.id] = next(generator) + '<|endoftext|>'
+        else:
+            self.conversation_history[sent_message.channel.id] += next(generator) + '<|endoftext|>'
         for response in generator:
             if response and time.time() - t > 1.5 and len(self.message_time_queue) < self.message_time_queue.maxlen:
                 t = time.time()
@@ -130,4 +133,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=True)
+    client.run(token, bot=False)

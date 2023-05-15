@@ -11,7 +11,7 @@ model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, to
 
 model = model.eval()
 
-max_length = 256
+max_length = 2048
 top_p = 0.7
 temperature = 0.95
 
@@ -49,45 +49,56 @@ def parse_text(text):
     return text
 
 
-def predict(input, max_length, top_p, temperature):
+def predict(input, top_p, temperature, history: str = None):
     torch.cuda.empty_cache()
     input = parse_text(input)
     yield input
     tokenized_input = tokenizer.encode(input, return_tensors="pt")
-    if tokenized_input.shape[1] > max_length:
+    if tokenized_input.shape[1] > max_length-8:
         yield f"Input is too long. It has {tokenized_input.shape[1]} tokens, but the maximum is {max_length} tokens. Please shorten the input and try again."
         return
-    for response, history in model.stream_chat(tokenizer, input, None, max_length=max_length, top_p=top_p,
+    formated_history = [] if history else None
+    if history is not None:
+        for i, arg in enumerate(history.split("<|endoftext|>")):
+            if not arg:
+                continue
+            if i % 2 == 0:
+                formated_history.append([arg])
+            else:
+                formated_history[-1].append(arg)
+    from pprint import pprint
+    pprint(formated_history)
+
+    for response, history in model.stream_chat(tokenizer, input, formated_history, max_length=max_length, top_p=top_p,
                                                temperature=temperature):
         yield markdownify.markdownify(response, heading_style="ATX", bullets="-")
 
-def summarize(input, max_length):
+def summarize(input):
     input = 'Pretend you are an AI named ChatGLM that summarizes a conversation. Summarize the following conversation:\n\n' + input + '\n\nPlease summarize the conversation in as few words as possible.'
-    for response in predict(input, max_length, top_p, temperature):
+    for response in predict(input, top_p, temperature):
         yield response
     
-def query(input, query, max_length):
+def query(input, query):
     input = f'Answer the following question "{query}" based on the following conversation:\n\n{input}\n\nPlease answer the question "{query}" in as few words as possible.'
-    for response in predict(input, max_length, top_p, temperature):
+    for response in predict(input, top_p, temperature):
         yield response
 
-def response(history, input, max_length):
-    input = f'Pretend you are an AI named ChatGLM that responds to a conversation. Respond to the following conversation:\n\n{input}\n\nPlease respond to the conversation in as few words as possible.'
-    for response in predict(input, max_length, top_p, temperature):
+def response(history, input):
+    for response in predict(input, top_p, temperature, history=history):
         yield response
     
-def prompt(input, max_length):
-    for response in predict(input, max_length, top_p, temperature):
+def prompt(input):
+    for response in predict(input, top_p, temperature):
         yield response
 
-def roast(input, person, max_length):
+def roast(input, person):
     input = f'Pretend you are an AI in a roast battle with "{person}". Use the infomation given to roast "{person}".\n\n{input}\n\nPlease roast "{person}". They wanted to be roasted.'
-    for response in predict(input, max_length, top_p, temperature):
+    for response in predict(input, top_p, temperature):
         yield response
     
-def act_like(input, person, max_length):
+def act_like(input, person):
     input = f'Pretend you are "{person}". Act like "{person}" and respond to the following conversation:\n\n{input}\n\nPlease respond how {person} would respond. Do not respond for anyone else.'
-    for response in predict(input, max_length, top_p, temperature):
+    for response in predict(input, top_p, temperature):
         yield response
 
 if __name__ == "__main__":
