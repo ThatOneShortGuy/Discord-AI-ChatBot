@@ -6,7 +6,7 @@ from collections import deque
 import discord
 import torch
 
-import ChatGLM_Model as m
+import OpenAssistant_Model as m
 
 if os.path.exists('token.txt'):
     with open('token.txt', 'r') as f:
