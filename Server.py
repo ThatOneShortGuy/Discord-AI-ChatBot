@@ -69,10 +69,11 @@ class myClient(discord.Client):
 
     async def send_message(self, generator, sent_message):
         t = time.time()
+        self.terminal_size = os.get_terminal_size()[0]
         if sent_message.channel.id not in self.conversation_history or not self.keep_history:
-            self.conversation_history[sent_message.channel.id] = next(generator) + '<|endoftext|>'
+            self.conversation_history[sent_message.channel.id] = next(generator)
         else:
-            self.conversation_history[sent_message.channel.id] += next(generator) + '<|endoftext|>'
+            self.conversation_history[sent_message.channel.id] += next(generator).replace(self.conversation_history[sent_message.channel.id], '')
             self.keep_history = False
         for response in generator:
             if response and time.time() - t > 1.5 and len(self.message_time_queue) < self.message_time_queue.maxlen:
@@ -82,6 +83,7 @@ class myClient(discord.Client):
             while len(self.message_time_queue) and time.time() - self.message_time_queue[0] < 60:
                 self.message_time_queue.popleft()
             print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
+        print()
         self.conversation_history[sent_message.channel.id] += f'{response}<|endoftext|>'
         return await sent_message.edit(content=response)
 
@@ -136,4 +138,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=False)
+    client.run(token, bot=True)

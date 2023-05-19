@@ -4,7 +4,6 @@ import socket
 
 import requests
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.system("")
 
 SERVER_IP = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
@@ -40,7 +39,8 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
     prompter = Prompter(input)
     assistant = Assistant(history)
     input = f'{system}{prefix}{history if history else ""}{prompter}{assistant.prefix}' if custom_input is None else custom_input
-    print(f"\tInput\n{'-'*22}\n\033[92m{input}\033[0m")
+    terminal_size = os.get_terminal_size()[0]
+    print(f"{'Input'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{input}\033[0m")
     yield input
     data = json.dumps({'text': input})
     headers = {'content-type': 'application/json'}
@@ -48,8 +48,6 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
     response = requests.post(URL, data=data, headers=headers, stream=True)
     for content in response.iter_content(chunk_size=None, decode_unicode=True):
         yield content
-
-    return
     
 
 def predict(system, prefix, input, history=None):
@@ -57,13 +55,13 @@ def predict(system, prefix, input, history=None):
         yield response
 
 def summarize(prefix: str):
-    system = 'You are an AI that summarizes a conversation in as few words as possible.'
-    input = f'Summarize the previous conversation in as few words as possible'
+    system = 'Summarize the conversation'
+    input = f'Summarize the conversation in as few words as possible'
     for response in stream_chat(system, prefix, input):
         yield response
     
 def query(conversation, query):
-    system = "You are an AI named ChatGLM that answers questions based on a conversation in as few words as possible."
+    system = "- You are an AI named ChatGLM\n- Answer questions from a conversation\n- Answer in as few words as possible"
     for response in stream_chat(system, conversation, query):
         yield response
 
@@ -72,14 +70,23 @@ def response(history, input):
         yield response
     
 def prompt(input):
-    for response in stream_chat(None, None, input):
+    system = 'Respond in as few words as possible.'
+    for response in stream_chat(system, None, input):
         yield response
 
 def roast(prefix, person):
-    system = f'You are an AI in a roast battle with {person}. Be as offensive and inappropriate as possible. The goal is to hurt their feelings in as few words as possible. {person} is wanting to hear this.'
-    input = f'Roast {person}.'
-    for response in stream_chat(system, prefix, input):
-        yield response
+    system = f'''You are in a roast battle with {person}. Roasting is:
+- A verbal fight
+- Insulting someone
+- Hurt {person}'s feelings
+- Just a joke'''
+    input = f'Offend {person} in minimal words'
+    system = System(system)
+    prefix = Prefix(prefix)
+    input = Prompter(input)
+    # for response in stream_chat(system, prefix, input):
+    for response in stream_chat(None, None, None, custom_input=f'{system}{prefix}{input}{Assistant(None).prefix}{person} is'):
+        yield f'{person} is' + response
     
 def act_like(prefix, person):
     for response in stream_chat(None, None, None, custom_input=f'{prefix}<|prompter|>{person}: '):
@@ -95,7 +102,7 @@ First of all, let's start with your love for dogs. Dogs are great creatures, rig
 
 Now, let us turn to your views on gender roles. You've said that men and women should act differently, and that men should be leaders and protectors while women should stay home and raise children. This is a dangerous view, one that perpetuates harmful stereotypes and biases against women. We cannot continue to divide ourselves along gender lines, or allow discrimination based on gender to thrive. Women deserve equal opportunities and rights, regardless of their role in society.
 If you truly care about equality, then you must stand up for women's rights and recognize the contributions of all individuals. You can start by speaking out against violence against women and supporting initiatives to end gender inequality. And you can also encourage other men to challenge outdated ideas and embrace diversity and inclusivity.
-In conclusion, ShortGuy, you are a misogyinist, you are sexist and you do not respect women! Your opinion is outdated and dangerous, and has no place in our world. May you rot in hell forever.""", 512)):
+In conclusion, ShortGuy, you are a misogyinist, you are sexist and you do not respect women! Your opinion is outdated and dangerous, and has no place in our world. May you rot in hell forever.""")):
         print(words, end='\r\r')
     t2 = time.time()
     print(f'\n\nTime: {t2-t1:.2f} seconds\nTokens: {i}\nTokens per second: {i/(t2-t1):.2f}')

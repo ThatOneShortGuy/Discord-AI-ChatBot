@@ -1,5 +1,5 @@
 import os
-import socket
+import gc
 
 import torch
 from flask import Flask, jsonify, request, Response
@@ -12,11 +12,11 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 
 app = Flask(__name__)
 
-MODEL_NAME = "OpenAssistant/pythia-12b-sft-v8-7k-steps"
+MODEL_NAME = "OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5"
 
 config = AutoConfig.from_pretrained(MODEL_NAME)
 
-max_memory = {0: '20GB', 1: '9GB', 'cpu': '20GB'}
+max_memory = {0: '40GB', 1: '9GB', 'cpu': '20GB'}
 
 with init_empty_weights():
     model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16)
@@ -25,8 +25,8 @@ with init_empty_weights():
 pprint(device_map)
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_size='left')
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map).half()
-# model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map, load_in_8bit=True, llm_int8_threshold=0)
+# model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map).half()
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map, load_in_8bit=True, llm_int8_threshold=0)
 
 model = model.eval()
 model = torch.compile(model, mode='max-autotune', fullgraph=True)
@@ -59,6 +59,7 @@ def generate():
 
 @app.route('/generate_stream', methods=['POST'])
 def generate_stream():
+    gc.collect()
     torch.cuda.ipc_collect()
     torch.cuda.empty_cache()
     content = request.json
@@ -70,6 +71,7 @@ def generate_stream():
         if init_length > 2048:
             yield f"Input is too long. It has {init_length} tokens, but the maximum is {2048} tokens. Please shorten the input and try again." # 2048 in f-string because increased visibility
             return
+        print(f'Input length: {init_length} tokens')
         output_sequence = output_sequence.to(model.device)
         for _ in range(2048-init_length):
             output_sequence = model.generate(
