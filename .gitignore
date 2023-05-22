@@ -1,3 +1,4 @@
 token.txt
 __pycache__/
-temp.py
+temp.*
+images

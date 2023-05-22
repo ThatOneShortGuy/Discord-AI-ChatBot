@@ -1,12 +1,15 @@
+import io
 import os
 import re
 import time
-from collections import deque 
+from collections import deque
 
 import discord
 import torch
+from PIL import Image
 
 import OpenAssistant_Model as m
+import StableDiffusion as sd
 
 if os.path.exists('token.txt'):
     with open('token.txt', 'r') as f:
@@ -26,6 +29,7 @@ help_text = """Commands:
     ... - any number of arguments
     user_name - @mention of the user
 
+    Text operations:
     `help` - display this message
     `summarize <n> [n2]` - summarize the last n messages, optionally skipping the last n2 messages
     `query <n> [n2] <...>` - query the chatbot with the given text, optionally skipping the last n2 messages. Ex: `query 10 2 What conclusions can we draw from this?`
@@ -33,6 +37,9 @@ help_text = """Commands:
     `prompt <...>` - prompt the bare chatbot with the given text
     `roast <user_name> <n> [n2]` - roast the user with the given name using the context from the past n messages, optionally skipping the last n2 messages (Doesn't work well. Better prompt engineering needed)
     `act_like <user_name> <n> [n2]` - act like the user with the given name and respond as them. n is the number of messages for context, optionally skipping the last n2 messages
+
+    Image operations:
+    `generate <...>` - generate an image with the given prompt (normal Stable Diffusion)
     """
 commands = [r'(?P<command>help)',
             r'(?P<command>summarize)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
@@ -40,7 +47,8 @@ commands = [r'(?P<command>help)',
             r'(?P<command>response)\s+(?P<text>.+)',
             r'(?P<command>prompt)\s+(?P<text>.+)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
-            r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',]
+            r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
+            r'(?P<command>generate)\s+(?P<text>.+)']
 
 class myClient(discord.Client):
     async def on_ready(self):
@@ -86,6 +94,14 @@ class myClient(discord.Client):
         print()
         self.conversation_history[sent_message.channel.id] += f'{response}<|endoftext|>'
         return await sent_message.edit(content=response)
+    
+    async def send_image(self, image: Image, sent_message):
+        image.save('temp.jpg', quality=95, subsampling=0)
+        image = discord.File('temp.jpg')
+        await sent_message.channel.send(file=image)
+
+        # Delete the sent message
+        await sent_message.delete()
 
     async def on_message(self, message):
         torch.cuda.empty_cache()
@@ -129,6 +145,10 @@ class myClient(discord.Client):
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(m.act_like(sent_message_content, username), sent_message)
+        if command == 'generate':
+            sent_message = await message.channel.send('Generating...')
+            return await self.send_image(sd.generate(mat.group('text'), img_type='waifu', width=512, height=512, num_inference_steps=130,
+                                                     neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry'), sent_message)
 
     def get_matching_command(self, content):
         for command in commands:
@@ -138,4 +158,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=True)
+    client.run(token, bot=False)

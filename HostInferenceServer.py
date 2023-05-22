@@ -16,7 +16,7 @@ MODEL_NAME = "OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5"
 
 config = AutoConfig.from_pretrained(MODEL_NAME)
 
-max_memory = {0: '40GB', 1: '9GB', 'cpu': '20GB'}
+max_memory = {0: '24GB', 1: '9GB', 'cpu': '20GB'}
 
 with init_empty_weights():
     model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16)
