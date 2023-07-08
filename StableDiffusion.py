@@ -2,6 +2,7 @@ import io
 import json
 import os
 import socket
+import time
 
 import requests
 from PIL import Image
@@ -16,7 +17,18 @@ def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, nu
                        'type': img_type, 'num_inference_steps': num_inference_steps,
                        'neg_prompt': neg_prompt, 'save': False})
     headers = {'content-type': 'application/json'}
-    response = requests.post(URL, data=data, headers=headers)
+    err = False
+    while True:
+        try:
+            response = requests.post(URL, data=data, headers=headers)
+            break
+        except requests.exceptions.ConnectionError:
+            if err:
+                time.sleep(3)
+                continue
+            os.system("start python stableInferenceServer.py")
+            err = True
+            time.sleep(5)
     content = response.content
     image = io.BytesIO(content)
     image = Image.open(image)

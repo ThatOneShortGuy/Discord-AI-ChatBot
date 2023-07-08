@@ -1,6 +1,7 @@
 import json
 import os
 import socket
+import time
 
 import requests
 
@@ -45,7 +46,22 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
     data = json.dumps({'text': input})
     headers = {'content-type': 'application/json'}
     # Stream the generated output
-    response = requests.post(URL, data=data, headers=headers, stream=True)
+    err = False
+    while True:
+        try:
+            response = requests.post(URL, data=data, headers=headers, stream=True)
+        except requests.exceptions.ConnectionError:
+            if err:
+                time.sleep(3)
+                continue
+            yield f"Failed to connect to server. Attemping to start server. Please wait..."
+            os.system("start python HostInferenceServer.py")
+            time.sleep(5)
+            yield f"Server starting. Please wait..."
+            err = True
+            continue
+        break 
+        
     for content in response.iter_content(chunk_size=None, decode_unicode=True):
         yield content
     
@@ -56,7 +72,7 @@ def predict(system, prefix, input, history=None):
 
 def summarize(prefix: str):
     system = 'Summarize the conversation'
-    input = f'Summarize the conversation in as few words as possible'
+    input = f'How many different topics are there? What are they?'
     for response in stream_chat(system, prefix, input):
         yield response
     

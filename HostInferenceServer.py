@@ -12,24 +12,27 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 
 app = Flask(__name__)
 
-MODEL_NAME = "OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5"
+MODEL_NAME = "OpenAssistant/falcon-7b-sft-mix-2000"
 
-config = AutoConfig.from_pretrained(MODEL_NAME)
+config = AutoConfig.from_pretrained(MODEL_NAME, trust_remote_code=True)
 
 max_memory = {0: '24GB', 1: '9GB', 'cpu': '20GB'}
 
 with init_empty_weights():
-    model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16)
+    model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16, trust_remote_code=True)
     device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=['GPTNeoXLayer', 'GPTNeoXMLP'])
 
 pprint(device_map)
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_size='left')
 # model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map).half()
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map, load_in_8bit=True, llm_int8_threshold=0)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map, load_in_8bit=False, llm_int8_threshold=0, trust_remote_code=True)
 
 model = model.eval()
-model = torch.compile(model, mode='max-autotune', fullgraph=True)
+try:
+    model = torch.compile(model, mode='max-autotune', fullgraph=True)
+except Exception as e:
+    print("Could not compile model:", e)
 
 @app.route('/generate', methods=['POST'])
 def generate():

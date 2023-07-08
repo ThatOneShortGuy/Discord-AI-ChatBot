@@ -72,7 +72,7 @@ class myClient(discord.Client):
             for user in message.mentions:
                 content = re.sub(f'<@!?{user.id}>', user.name, content)
             
-            sent_message_content += f'<|prompter|>{str(message.author)[:-5]}: {content}<|endoftext|>'
+            sent_message_content += f'<{str(message.author)[:-2]}>{content}</{str(message.author)[:-2]}>\n'
         return sent_message, sent_message_content
 
     async def send_message(self, generator, sent_message):
@@ -147,7 +147,7 @@ class myClient(discord.Client):
             return await self.send_message(m.act_like(sent_message_content, username), sent_message)
         if command == 'generate':
             sent_message = await message.channel.send('Generating...')
-            return await self.send_image(sd.generate(mat.group('text'), img_type='waifu', width=512, height=512, num_inference_steps=130,
+            return await self.send_image(sd.generate(mat.group('text'), img_type='normal', width=512, height=512, num_inference_steps=130,
                                                      neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry'), sent_message)
 
     def get_matching_command(self, content):
