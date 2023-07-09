@@ -4,3 +4,4 @@ markdownify
 cpm_kernels
 icetk
 accelerate
+flask
