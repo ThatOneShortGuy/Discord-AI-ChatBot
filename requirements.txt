@@ -5,3 +5,4 @@ cpm_kernels
 icetk
 accelerate
 flask
+einops
