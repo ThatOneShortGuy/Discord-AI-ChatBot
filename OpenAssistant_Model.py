@@ -58,7 +58,7 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
             if os.name == 'nt':
                 os.system("start python HostInferenceServer.py")
             else:
-                os.system("python3 HostInferenceServer.py")
+                os.system("python3 HostInferenceServer.py &")
             time.sleep(5)
             yield f"Failed to connect to server. Attemping to start server. Please wait...\nServer starting. Please wait..."
             err = True
