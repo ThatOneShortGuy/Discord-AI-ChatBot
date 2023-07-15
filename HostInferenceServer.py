@@ -25,7 +25,7 @@ with init_empty_weights():
 pprint(device_map)
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_size='left')
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map=device_map, trust_remote_code=True).half()
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map=device_map, trust_remote_code=True).half()
 # model = AutoModelForCausalLM.from_pretrained(
 #                                              MODEL_NAME,
 #                                              torch_dtype=torch.float16,
