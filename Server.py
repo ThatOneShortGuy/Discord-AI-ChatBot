@@ -5,6 +5,7 @@ import time
 from collections import deque
 
 import discord
+import requests
 import torch
 from PIL import Image
 
@@ -50,6 +51,9 @@ commands = [r'(?P<command>help)',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>generate)\s+(?P<text>.+)']
 
+def describe_image(image):
+    return requests.post('http://localhost:5002/describe', json={'image': image}).json()
+
 class myClient(discord.Client):
     async def on_ready(self):
         print(f'Logged on as {self.user} ({self.user.mention})')
@@ -58,14 +62,14 @@ class myClient(discord.Client):
         self.conversation_history = {} # {channel_id: conversation}
         self.keep_history = False
 
-    async def format_messages(self, content, message, n, n2='0'):
+    async def format_messages(self, content, message: discord.Message, n, n2='0'):
         if not n.isdigit():
             return
         n2 = int(n2) if isinstance(n2, str) and n2.isdigit() else 0
         sent_message_content = ''
         messages = message.channel.history(limit=int(n)+1)
-        messages = (await messages.flatten())[:n2:-1]
-        sent_message = await message.channel.send('Working on it...')
+        messages = [message async for message in messages][:n2:-1]
+        sent_message = await message.channel.send('Working on it...', silent=True)
         self.message_time_queue.append(time.time())
         for message in messages:
             content = message.content
@@ -98,7 +102,7 @@ class myClient(discord.Client):
     async def send_image(self, image: Image, sent_message):
         image.save('temp.jpg', quality=95, subsampling=0)
         image = discord.File('temp.jpg')
-        await sent_message.channel.send(file=image)
+        await sent_message.channel.send(file=image, silent=True)
 
         # Delete the sent message
         await sent_message.delete()
@@ -158,4 +162,4 @@ class myClient(discord.Client):
 
 if __name__ == '__main__':
     client = myClient()
-    client.run(token, bot=False)
+    client.run(token)
