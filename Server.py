@@ -76,7 +76,31 @@ class myClient(discord.Client):
             for user in message.mentions:
                 content = re.sub(f'<@!?{user.id}>', user.name, content)
             
-            sent_message_content += f'<{str(message.author)[:-2]}>{content}</{str(message.author)[:-2]}>\n'
+            for embed in message.embeds:
+                from pprint import pprint
+                embed = embed.to_dict()
+                url = embed['url']
+                if 'thumbnail' in embed.keys():
+                    url = embed['thumbnail']['url']
+                
+                if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
+                    url_replacement = f"<{embed['type']}>{describe_image(url)}</{embed['type']}>"
+                else:
+                    url_replacement = ""
+                
+                content = re.sub(embed['url'], url_replacement, content)
+                    
+
+            if message.attachments:
+                for attachment in message.attachments:
+                    if attachment.content_type == 'image/png' or attachment.content_type == 'image/jpeg':
+                        content += f"<{attachment.content_type}>{describe_image(attachment.url)}</{attachment.content_type}>"
+
+
+            name = message.author.nick if isinstance(message.author, discord.Member) and message.author.nick else message.author.global_name
+            name = name if name else message.author.name
+            if content:
+                sent_message_content += f'<{name}>{content}</{name}>\n'
         return sent_message, sent_message_content
 
     async def send_message(self, generator, sent_message):
