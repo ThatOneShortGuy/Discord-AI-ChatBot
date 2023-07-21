@@ -79,6 +79,8 @@ class myClient(discord.Client):
             for embed in message.embeds:
                 from pprint import pprint
                 embed = embed.to_dict()
+                if 'url' not in embed.keys():
+                    continue
                 url = embed['url']
                 if 'thumbnail' in embed.keys():
                     url = embed['thumbnail']['url']
