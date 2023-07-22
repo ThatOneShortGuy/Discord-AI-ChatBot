@@ -1,30 +1,19 @@
 import gc
-import os
-import re
 import hashlib
-import ctypes, sys
 import io
 import json
+import os
+import re
+
+import torch
+from diffusers import (DiffusionPipeline, DPMSolverMultistepScheduler,
+                       StableDiffusionUpscalePipeline)
+from flask import Flask, jsonify, request, send_file
+from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 
 os.environ['TRANSFORMERS_CACHE'] = 'D:/TransformersCache'
 
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
-
-if not is_admin():
-    self_file_name = os.path.basename(__file__)[:-3]
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", 'waitress-serve', f'--listen=*:5001 --threads 1 {self_file_name}:app', None, 1)
-    sys.exit(0)
-
-os.chdir(os.path.dirname(os.path.realpath(__file__))) # Change or files will be saved in C:\Windows\System32
-
-import torch
-from diffusers import DPMSolverMultistepScheduler, StableDiffusionUpscalePipeline, DiffusionPipeline
-from flask import Flask, request, send_file, jsonify
-from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
+os.chdir(os.path.dirname(os.path.realpath(__file__))) # Change or files may be saved in C:\Windows\System32
 
 def init_upscaler():
     global upscaler
@@ -132,5 +121,4 @@ def generate():
 
 
 if __name__ == '__main__':
-    import waitress
-    waitress.serve(app, listen='0.0.0.0:5001')
+    app.run(host='0.0.0.0', port=5001, debug=False)

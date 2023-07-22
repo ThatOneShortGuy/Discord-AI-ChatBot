@@ -9,6 +9,7 @@ from pprint import pprint
 import re
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
+os.environ['TRANSFORMERS_CACHE'] = 'D:/TransformersCache'
 
 app = Flask(__name__)
 
@@ -103,4 +104,4 @@ def generate_stream():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=False)
