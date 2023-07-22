@@ -2,3 +2,4 @@ token.txt
 __pycache__/
 temp.*
 images
+config.ini

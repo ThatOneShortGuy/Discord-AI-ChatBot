@@ -1,31 +1,41 @@
-import os
 import gc
+import os
+import re
+from configparser import ConfigParser
+from pprint import pprint
+import sys
 
 import torch
-from flask import Flask, jsonify, request, Response
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from accelerate import infer_auto_device_map, init_empty_weights
-from pprint import pprint
-import re
+from flask import Flask, Response, jsonify, request
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
-os.environ['TRANSFORMERS_CACHE'] = 'D:/TransformersCache'
+config = ConfigParser()
+config.read('config.ini')
+
+profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+
+os.environ['CUDA_VISIBLE_DEVICES'] = config[profile]['CUDA_VISIBLE_DEVICES']
+os.environ['TRANSFORMERS_CACHE'] = config[profile]['TRANSFORMERS_CACHE']
 
 app = Flask(__name__)
 
-MODEL_NAME = "OpenAssistant/falcon-7b-sft-mix-2000"
+MODEL_NAME = config[profile]['language_model']
 
-config = AutoConfig.from_pretrained(MODEL_NAME, trust_remote_code=True)
+model_config = AutoConfig.from_pretrained(MODEL_NAME, trust_remote_code=True)
 
-max_memory = {0: '20GB', 1: '9GB', 'cpu': '44GB'}
+max_memory = {0: '20GB', 1: '9GB', 'cpu': '59GB'}
 
 with init_empty_weights():
-    model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_config(model_config, torch_dtype=torch.float16, trust_remote_code=True)
     device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=['GPTNeoXLayer', 'GPTNeoXMLP'])
 
+print('Device map:')
 pprint(device_map)
+print('Using model:', MODEL_NAME)
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_size='left')
+print(f'Max token length: {tokenizer.model_max_length}')
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map=device_map, trust_remote_code=True).half()
 # model = AutoModelForCausalLM.from_pretrained(
 #                                              MODEL_NAME,
@@ -50,7 +60,7 @@ def generate():
     input_ids = input_ids.to(model.device)
     output_sequence = model.generate(
             input_ids,
-            max_length=2048,
+            max_length=tokenizer.model_max_length,
             do_sample=True,
             top_k=69,
             top_p=.7,
@@ -104,4 +114,4 @@ def generate_stream():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host=config[profile]['model_server_ip'], port=config[profile]['model_server_port'], debug=False, threaded=True)

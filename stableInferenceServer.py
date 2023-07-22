@@ -4,6 +4,8 @@ import io
 import json
 import os
 import re
+from configparser import ConfigParser
+import sys
 
 import torch
 from diffusers import (DiffusionPipeline, DPMSolverMultistepScheduler,
@@ -11,7 +13,12 @@ from diffusers import (DiffusionPipeline, DPMSolverMultistepScheduler,
 from flask import Flask, jsonify, request, send_file
 from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 
-os.environ['TRANSFORMERS_CACHE'] = 'D:/TransformersCache'
+config = ConfigParser()
+config.read('config.ini')
+
+profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+
+os.environ['TRANSFORMERS_CACHE'] = config[profile]['TRANSFORMERS_CACHE'] if os.path.exists('config.ini') else 'D:\TransformersCache'
 
 os.chdir(os.path.dirname(os.path.realpath(__file__))) # Change or files may be saved in C:\Windows\System32
 
@@ -43,7 +50,7 @@ def upscale_image(prompt, image, **kwargs):
     torch.cuda.empty_cache()
     return img
 
-pipe_type('stabilityai/stable-diffusion-2-1')
+pipe_type(config[profile]['image_gen_model'] if os.path.exists('config.ini') else 'stabilityai/stable-diffusion-2-1')
 
 global model_type
 model_type = 'normal'
@@ -75,7 +82,7 @@ def generate():
         model_type = 'waifu'
         print('Switched to waifu model')
     elif img_type == 'normal' and model_type != 'normal':
-        pipe_type('stabilityai/stable-diffusion-2-1')
+        pipe_type(config[profile]['image_gen_model'] if os.path.exists('config.ini') else 'stabilityai/stable-diffusion-2-1')
         model_type = 'normal'
         print('Switched to normal model')
 
@@ -121,4 +128,4 @@ def generate():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    app.run(host=config[profile]['image_gen_ip'], port=config[profile]['image_gen_port'], debug=False)

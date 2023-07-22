@@ -1,8 +1,10 @@
 import io
 import os
 import re
+import sys
 import time
 from collections import deque
+from configparser import ConfigParser
 
 import discord
 import requests
@@ -11,16 +13,16 @@ from PIL import Image
 
 import OpenAssistantModel as m
 import StableDiffusion as sd
+from makeConfig import makeConfig
 
-if os.path.exists('token.txt'):
-    with open('token.txt', 'r') as f:
-        token = f.readline().strip()
-else:
-    token = input('Enter your token:\n')
-    cache_token = input('Cache token for future use? (y/n)\n').lower()
-    if cache_token == 'y':
-        with open('token.txt', 'w') as f:
-            f.write(token)
+profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+
+makeConfig(profile)
+
+config = ConfigParser()
+config.read('config.ini')
+
+token = config[profile]['token']
 
 help_text = """Commands:
     n - refers to the "n" most recent messages used for context in the channel.
@@ -53,7 +55,7 @@ commands = [r'(?P<command>help)',
 
 def describe_image(image):
     try:
-        return requests.post('http://localhost:5002/describe', json={'image': image}).json()
+        return requests.post(f'http://{config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}/describe', json={'image': image}).json()
     except Exception as e:
         print('Could not describe image:', e)
         return 'Image description failed'
@@ -78,7 +80,9 @@ class myClient(discord.Client):
         for message in messages:
             content = message.content
             for user in message.mentions:
-                content = re.sub(f'<@!?{user.id}>', user.name, content)
+                name = user.nick if isinstance(user, discord.Member) and user.nick else user.global_name
+                name = name if name else user.name
+                content = re.sub(f'<@!?{user.id}>', name, content)
             
             for embed in message.embeds:
                 from pprint import pprint
