@@ -14,7 +14,7 @@ python3 -m pip install -r requirements.txt
 ```bash
 python3 Server.py
 ```
-2. @mention the bot and type `help` to get a list of commands. (e.g. `@bot help`)
+2. `@mention` the bot and type `help` to get a list of commands. (e.g. `@bot help`)
 
 # Commands
 ## Syntax
