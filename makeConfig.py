@@ -21,11 +21,11 @@ def makeConfig(profile='DEFAULT'):
         config[profile]['CUDA_VISIBLE_DEVICES'] = '0'
         config[profile]['language_model'] = 'OpenAssistant/falcon-7b-sft-mix-2000'
         config[profile]['image_gen_model'] = 'stabilityai/stable-diffusion-2-1'
-        config[profile]['image_description_ip'] = '0.0.0.0'
+        config[profile]['image_description_ip'] = '127.0.0.1'
         config[profile]['image_description_port'] = '5002'
-        config[profile]['model_server_ip'] = '0.0.0.0'
+        config[profile]['model_server_ip'] = '127.0.0.1'
         config[profile]['model_server_port'] = '5000'
-        config[profile]['image_gen_ip'] = '0.0.0.0'
+        config[profile]['image_gen_ip'] = '127.0.0.1'
         config[profile]['image_gen_port'] = '5001'
 
         # If os is windows, use the default cache path
