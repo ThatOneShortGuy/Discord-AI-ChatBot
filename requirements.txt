@@ -1,3 +1,7 @@
+--index-url https://download.pytorch.org/whl/cu118
+torch
+torchvision
+torchaudio
 transformers
 discord.py-self
 markdownify
@@ -6,3 +10,6 @@ icetk
 accelerate
 flask
 einops
+diffusers
+xformers
+protobuf==4.23.4
