@@ -9,7 +9,7 @@ import requests
 import torch
 from PIL import Image
 
-import OpenAssistant_Model as m
+import OpenAssistantModel as m
 import StableDiffusion as sd
 
 if os.path.exists('token.txt'):
@@ -52,7 +52,11 @@ commands = [r'(?P<command>help)',
             r'(?P<command>generate)\s+(?P<text>.+)']
 
 def describe_image(image):
-    return requests.post('http://localhost:5002/describe', json={'image': image}).json()
+    try:
+        return requests.post('http://localhost:5002/describe', json={'image': image}).json()
+    except Exception as e:
+        print('Could not describe image:', e)
+        return 'Image description failed'
 
 class myClient(discord.Client):
     async def on_ready(self):
