@@ -3,14 +3,25 @@ import json
 import os
 import socket
 import time
+from configparser import ConfigParser
+import sys
 
 import requests
 from PIL import Image
 
 os.system("")
 
-SERVER_IP = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
-URL = f'http://{SERVER_IP}:5001/generate'
+config = ConfigParser()
+config.read('config.ini')
+
+profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+
+SERVER_IP = config.get(profile, 'image_gen_ip')
+PORT = config.get(profile, 'image_gen_port')
+URL = f'http://{SERVER_IP}:{PORT}/generate'
+
+print("Server IP:", SERVER_IP)
+print("Port:", PORT)
 
 def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, num_inference_steps=69):
     data = json.dumps({'prompt': prompt, 'height': height, 'width': width,
@@ -18,15 +29,20 @@ def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, nu
                        'neg_prompt': neg_prompt, 'save': False})
     headers = {'content-type': 'application/json'}
     err = False
+    # response = requests.post(URL, data=data, headers=headers)
     while True:
         try:
             response = requests.post(URL, data=data, headers=headers)
             break
         except requests.exceptions.ConnectionError:
+            print('Waiting for server to start...')
             if err:
                 time.sleep(3)
                 continue
-            os.system("start python stableInferenceServer.py")
+            if os.name == 'nt':
+                os.system("start python stableInferenceServer.py")
+            else:
+                os.system("python3 stableInferenceServer.py &")
             err = True
             time.sleep(5)
     content = response.content

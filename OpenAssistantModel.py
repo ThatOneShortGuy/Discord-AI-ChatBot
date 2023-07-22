@@ -2,13 +2,21 @@ import json
 import os
 import socket
 import time
+from configparser import ConfigParser
+import sys
 
 import requests
 
 os.system("")
 
-SERVER_IP = (([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
-URL = f'http://{SERVER_IP}:5000/generate_stream'
+config = ConfigParser()
+config.read('config.ini')
+
+profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+
+SERVER_IP = config.get(profile, 'model_server_ip')
+PORT = config.get(profile, 'model_server_port')
+URL = f'http://{SERVER_IP}:{PORT}/generate_stream'
 
 class System:
     def __init__(self, content, prefix='<|system|>', end_token='<|endoftext|>'):
@@ -124,4 +132,4 @@ If you truly care about equality, then you must stand up for women's rights and 
 In conclusion, ShortGuy, you are a misogyinist, you are sexist and you do not respect women! Your opinion is outdated and dangerous, and has no place in our world. May you rot in hell forever.""")):
         print(words, end='\r\r')
     t2 = time.time()
-    print(f'\n\nTime: {t2-t1:.2f} seconds\nTokens: {i}\nTokens per second: {i/(t2-t1):.2f}')
+    print(f'\n\nTime: {t2-t1:.2f} seconds\nTokens generated: {i}\nTokens per second: {i/(t2-t1):.2f}')
