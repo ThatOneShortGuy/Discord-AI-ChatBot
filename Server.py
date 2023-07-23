@@ -11,9 +11,9 @@ import requests
 import torch
 from PIL import Image
 
+from makeConfig import makeConfig
 import OpenAssistantModel as m
 import StableDiffusion as sd
-from makeConfig import makeConfig
 
 profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
 
