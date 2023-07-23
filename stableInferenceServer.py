@@ -125,7 +125,5 @@ def generate():
         file.seek(0)
         return send_file(file, mimetype='image/png')
 
-
-
 if __name__ == '__main__':
     app.run(host=config[profile]['image_gen_ip'], port=config[profile]['image_gen_port'], debug=False)
