@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 import os
+import sys
 
 config = ConfigParser()
 config.read('config.ini')
@@ -118,3 +119,5 @@ def makeConfig(profile='DEFAULT'):
         config[profile]['image_gen_port'] = image_gen_port
         with open('config.ini', 'w') as f:
             config.write(f)
+
+makeConfig(sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT')
