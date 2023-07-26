@@ -29,11 +29,8 @@ def makeConfig(profile='DEFAULT'):
         config[profile]['image_gen_ip'] = '127.0.0.1'
         config[profile]['image_gen_port'] = '5001'
 
-        # If os is windows, use the default cache path
-        if os.name == 'nt':
-            TRANSFORMERS_CACHE = ''
-        else:
-            TRANSFORMERS_CACHE = '/tmp/transformers_cache'
+        # Use the default Cache
+        TRANSFORMERS_CACHE = ''
         config[profile]['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE
 
         with open('config.ini', 'w') as f:
