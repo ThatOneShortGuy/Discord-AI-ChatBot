@@ -14,9 +14,16 @@ config = ConfigParser()
 config.read('config.ini')
 
 profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+os.system("")
+
+if profile not in config:
+    print(f'Profile "\033[31m{profile}\033[0m" not found in config.ini')
+    print('Please make the profile using `\033[33mpython3 makeConfig.py <profile>\033[0m` or edit config.ini manually.')
+    sys.exit(1)
 
 os.environ['CUDA_VISIBLE_DEVICES'] = config[profile]['CUDA_VISIBLE_DEVICES']
-os.environ['TRANSFORMERS_CACHE'] = config[profile]['TRANSFORMERS_CACHE']
+if config[profile]['TRANSFORMERS_CACHE']:
+    os.environ['TRANSFORMERS_CACHE'] = config[profile]['TRANSFORMERS_CACHE']
 
 app = Flask(__name__)
 
