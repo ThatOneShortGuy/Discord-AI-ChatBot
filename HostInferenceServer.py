@@ -9,6 +9,7 @@ import torch
 from accelerate import infer_auto_device_map, init_empty_weights
 from flask import Flask, Response, jsonify, request
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
 
 config = ConfigParser()
 config.read('config.ini')
@@ -52,11 +53,19 @@ model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloa
 #                                              trust_remote_code=True,
 #                                              llm_int8_enable_fp32_cpu_offload=True)
 
+model = PeftModel.from_pretrained(model, "ThatOneShortGuy/MusicalFalcon", is_trainable=False)
+
 model = model.eval()
 try:
     model = torch.compile(model, mode='max-autotune', fullgraph=True)
 except Exception as e:
     print("Could not compile model:", e)
+
+
+# batch = tokenizer("Hello, my dog is cute", return_tensors="pt", padding=True, truncation=True).to(model.device)
+# tensors = model.generate(inputs=batch.input_ids, max_new_tokens=69, num_return_sequences=1)
+# print(f'Tensors: {tensors}')
+# print(tokenizer.decode(tensors.detach()[0].tolist())) # Warmup
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -93,7 +102,7 @@ def generate_stream():
     inp = content.get('text', '')
     # Stream the generated output
     def generate():
-        output_sequence = tokenizer.encode(inp, return_tensors="pt")
+        output_sequence = tokenizer.encode(inp, return_tensors="pt", padding=True)
         init_length = output_sequence.shape[1]
         if init_length > 2048:
             yield f"Input is too long. It has {init_length} tokens, but the maximum is {2048} tokens. Please shorten the input and try again." # 2048 in f-string because increased visibility
@@ -102,7 +111,7 @@ def generate_stream():
         output_sequence = output_sequence.to(model.device)
         for _ in range(2048-init_length):
             output_sequence = model.generate(
-                output_sequence,
+                inputs=output_sequence,
                 do_sample=True,
                 top_k=69,
                 top_p=.7,
