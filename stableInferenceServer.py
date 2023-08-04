@@ -16,7 +16,7 @@ from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 config = ConfigParser()
 config.read('config.ini')
 
-profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
 if profile not in config:
     print(f'Profile "\033[31m{profile}\033[0m" not found in config.ini')
@@ -132,4 +132,8 @@ def generate():
         return send_file(file, mimetype='image/png')
 
 if __name__ == '__main__':
-    app.run(host=config[profile]['image_gen_ip'], port=config[profile]['image_gen_port'], debug=False)
+    app.run(
+        host='0.0.0.0',
+        port=config[profile]['image_gen_port'],
+        debug=False
+    )

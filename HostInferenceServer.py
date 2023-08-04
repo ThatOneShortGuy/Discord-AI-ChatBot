@@ -14,7 +14,7 @@ from peft import PeftModel
 config = ConfigParser()
 config.read('config.ini')
 
-profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 os.system("")
 
 if profile not in config:
@@ -36,7 +36,7 @@ max_memory = {0: '20GB', 1: '9GB', 'cpu': '59GB'}
 
 with init_empty_weights():
     model = AutoModelForCausalLM.from_config(model_config, torch_dtype=torch.float16, trust_remote_code=True)
-    device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=['GPTNeoXLayer', 'GPTNeoXMLP'])
+    device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=[''])
 
 print('Device map:')
 pprint(device_map)
@@ -130,4 +130,9 @@ def generate_stream():
 
 
 if __name__ == '__main__':
-    app.run(host=config[profile]['model_server_ip'], port=config[profile]['model_server_port'], debug=False, threaded=True)
+    app.run(
+        host='0.0.0.0',
+        port=config[profile]['model_server_port'],
+        debug=False,
+        threaded=True
+    )

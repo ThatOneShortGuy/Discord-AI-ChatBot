@@ -9,3 +9,4 @@ einops
 diffusers
 xformers
 protobuf==4.23.4
+peft
