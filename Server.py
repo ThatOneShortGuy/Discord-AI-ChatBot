@@ -15,7 +15,7 @@ from makeConfig import makeConfig
 import OpenAssistantModel as m
 import StableDiffusion as sd
 
-profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
 makeConfig(profile)
 

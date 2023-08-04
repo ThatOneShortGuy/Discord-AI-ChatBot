@@ -14,7 +14,7 @@ os.system("")
 config = ConfigParser()
 config.read('config.ini')
 
-profile = sys.argv[1] if len(sys.argv) > 1 else 'DEFAULT'
+profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
 SERVER_IP = config.get(profile, 'image_gen_ip')
 PORT = config.get(profile, 'image_gen_port')
