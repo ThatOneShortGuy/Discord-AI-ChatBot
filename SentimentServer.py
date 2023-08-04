@@ -30,7 +30,7 @@ if 'sentiment_model' not in config[profile]:
 MODEL_NAME = config[profile]['sentiment_model']
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, device_map={'':0})
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
 
 model = model.eval()
 
