@@ -53,7 +53,7 @@ model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloa
 #                                              trust_remote_code=True,
 #                                              llm_int8_enable_fp32_cpu_offload=True)
 
-model = PeftModel.from_pretrained(model, "ThatOneShortGuy/MusicalFalcon", is_trainable=False)
+# model = PeftModel.from_pretrained(model, "ThatOneShortGuy/MusicalFalcon", is_trainable=False)
 
 model = model.eval()
 try:
