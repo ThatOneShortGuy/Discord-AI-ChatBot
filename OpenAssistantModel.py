@@ -1,11 +1,13 @@
 import json
 import os
-import socket
 import time
 from configparser import ConfigParser
 import sys
+import re
 
 import requests
+
+import SentimentAPI as sentiment
 
 os.system("")
 
@@ -17,6 +19,7 @@ profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 SERVER_IP = config.get(profile, 'model_server_ip')
 PORT = config.get(profile, 'model_server_port')
 URL = f'http://{SERVER_IP}:{PORT}/generate_stream'
+GEN_URL = f'http://{SERVER_IP}:{PORT}/generate'
 
 class System:
     def __init__(self, content, prefix='<|system|>', end_token='<|endoftext|>'):
@@ -42,7 +45,27 @@ class Prefix(System):
     def __init__(self, content, prefix='<|prefix_begin|>', end_token='<|prefix_end|>'):
         super().__init__(content, prefix, end_token)
 
-def stream_chat(system_input, prefix_input, input, history=None, custom_input=None):
+def is_asking_for_song(input):
+    system = System('Do not elaborate.')
+    prompter = Prompter(f'Use the context to answer the question.\n```\nJoe:\nTim, {input}\n.\n```\nWas Joe asking Tim to write a song?')
+
+    prompt = f'{system}{prompter}' + Assistant(None).prefix
+    response = chat(prompt, max_tokens=2)
+    print(response)
+    return not re.match(r'no', response, re.IGNORECASE)
+    
+
+def chat(prompt, max_tokens=2048):
+    terminal_size = os.get_terminal_size()[0]
+    print(f"{'Prompt'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{prompt}\033[0m")
+
+    data = json.dumps({'text': prompt, 'max_tokens': max_tokens})
+    headers = {'content-type': 'application/json'}
+
+    response = requests.post(GEN_URL, data=data, headers=headers)
+    return response.json()['generated_text']
+
+def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=2048):
     system = System(system_input)
     prefix = Prefix(prefix_input)
     prompter = Prompter(input)
@@ -51,7 +74,7 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
     terminal_size = os.get_terminal_size()[0]
     print(f"{'Input'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{input}\033[0m")
     yield input
-    data = json.dumps({'text': input})
+    data = json.dumps({'text': input, 'max_tokens': max_tokens})
     headers = {'content-type': 'application/json'}
     # Stream the generated output
     err = False
@@ -88,7 +111,7 @@ def summarize(prefix: str):
         yield response
     
 def query(conversation, query):
-    system = "- You are an AI named ChatGLM\n- Answer questions from a conversation\n- Answer in as few words as possible"
+    system = "- Answer questions from a conversation\n- Answer in as few words as possible"
     for response in stream_chat(system, conversation, query):
         yield response
 
@@ -97,6 +120,8 @@ def response(history, input):
         yield response
     
 def prompt(input):
+    if is_asking_for_song(input):
+        print('Song')
     system = 'Respond in as few words as possible.'
     for response in stream_chat(system, None, input):
         yield response

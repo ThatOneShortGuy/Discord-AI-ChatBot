@@ -71,12 +71,13 @@ except Exception as e:
 def generate():
     content = request.json
     inp = content.get('text', '')
+    max_tokens = content.get('max_tokens', tokenizer.model_max_length)
     input_ids = tokenizer.encode(inp, return_tensors="pt")
     init_length = input_ids.shape[1]
     input_ids = input_ids.to(model.device)
     output_sequence = model.generate(
-            input_ids,
-            max_length=tokenizer.model_max_length,
+            inputs=input_ids,
+            max_new_tokens=max_tokens,
             do_sample=True,
             top_k=69,
             top_p=.7,
@@ -87,7 +88,8 @@ def generate():
             temperature=.95,
             use_cache=True,
             no_repeat_ngram_size=3,
-            early_stopping=True)
+            early_stopping=True
+        )
 
     decoded_output = tokenizer.decode(output_sequence[0][init_length:-1])
 
@@ -100,16 +102,17 @@ def generate_stream():
     torch.cuda.empty_cache()
     content = request.json
     inp = content.get('text', '')
+    max_tokens = content.get('max_tokens', tokenizer.model_max_length)
     # Stream the generated output
     def generate():
         output_sequence = tokenizer.encode(inp, return_tensors="pt", padding=True)
         init_length = output_sequence.shape[1]
-        if init_length > 2048:
-            yield f"Input is too long. It has {init_length} tokens, but the maximum is {2048} tokens. Please shorten the input and try again." # 2048 in f-string because increased visibility
+        if init_length > max_tokens:
+            yield f"Input is too long. It has {init_length} tokens, but the maximum is {max_tokens} tokens. Please shorten the input and try again."
             return
         print(f'Input length: {init_length} tokens')
         output_sequence = output_sequence.to(model.device)
-        for _ in range(2048-init_length):
+        for _ in range(max_tokens-init_length):
             output_sequence = model.generate(
                 inputs=output_sequence,
                 do_sample=True,
@@ -117,11 +120,13 @@ def generate_stream():
                 top_p=.7,
                 num_return_sequences=1,
                 pad_token_id=tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id,
                 repetition_penalty=1.2,
                 temperature=.95,
                 use_cache=True,
                 no_repeat_ngram_size=3,
-                max_new_tokens=1,)
+                max_new_tokens=1,
+            )
             if output_sequence[0][-1] == tokenizer.eos_token_id:
                 break
             decoded_output = tokenizer.decode(output_sequence[0][init_length:].tolist())
