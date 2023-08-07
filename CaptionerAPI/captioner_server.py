@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 MODEL_NAME = "Salesforce/blip-image-captioning-large"
 
-device_map = {'': 1} if torch.cuda.is_available() else 'auto'
+device_map = {'': 1} if torch.cuda.is_available() else None
 
 processor = BlipProcessor.from_pretrained(MODEL_NAME)
 model = BlipForConditionalGeneration.from_pretrained(MODEL_NAME, device_map=device_map, torch_dtype=torch.float16)
