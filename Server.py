@@ -1,4 +1,3 @@
-import io
 import os
 import re
 import sys
@@ -7,13 +6,13 @@ from collections import deque
 from configparser import ConfigParser
 
 import discord
-import requests
 import torch
 from PIL import Image
 
 from makeConfig import makeConfig
 import OpenAssistantModel as m
 import StableDiffusion as sd
+from Captioner import describe_image
 
 profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
@@ -52,13 +51,6 @@ commands = [r'(?P<command>help)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>generate)\s+(?P<text>.+)']
-
-def describe_image(image):
-    try:
-        return requests.post(f'http://{config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}/describe', json={'image': image}).json()
-    except Exception as e:
-        print('Could not describe image:', e)
-        return 'Image description failed'
 
 class myClient(discord.Client):
     async def on_ready(self):
