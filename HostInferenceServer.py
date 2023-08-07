@@ -72,10 +72,18 @@ def generate():
     content = request.json
     inp = content.get('text', '')
     max_tokens = content.get('max_tokens', tokenizer.model_max_length)
+    peft_model = content.get('peft_model', '')
+
+    if peft_model:
+        peft_model = PeftModel.from_pretrained(model, peft_model, is_trainable=False)
+    else:
+        peft_model = model
+    peft_model = peft_model.eval()
+
     input_ids = tokenizer.encode(inp, return_tensors="pt")
     init_length = input_ids.shape[1]
     input_ids = input_ids.to(model.device)
-    output_sequence = model.generate(
+    output_sequence = peft_model.generate(
             inputs=input_ids,
             max_new_tokens=max_tokens,
             do_sample=True,
@@ -103,8 +111,16 @@ def generate_stream():
     content = request.json
     inp = content.get('text', '')
     max_tokens = content.get('max_tokens', tokenizer.model_max_length)
+
     # Stream the generated output
     def generate():
+        peft_model = content.get('peft_model', '')
+        if peft_model:
+            peft_model = PeftModel.from_pretrained(model, peft_model, is_trainable=False)
+        else:
+            peft_model = model
+        peft_model = peft_model.eval()
+
         output_sequence = tokenizer.encode(inp, return_tensors="pt", padding=True)
         init_length = output_sequence.shape[1]
         if init_length > max_tokens:
@@ -113,7 +129,7 @@ def generate_stream():
         print(f'Input length: {init_length} tokens')
         output_sequence = output_sequence.to(model.device)
         for _ in range(max_tokens-init_length):
-            output_sequence = model.generate(
+            output_sequence = peft_model.generate(
                 inputs=output_sequence,
                 do_sample=True,
                 top_k=69,
