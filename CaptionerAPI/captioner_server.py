@@ -14,7 +14,10 @@ MODEL_NAME = "Salesforce/blip-image-captioning-large"
 device_map = {'': 1} if torch.cuda.is_available() else None
 
 processor = BlipProcessor.from_pretrained(MODEL_NAME)
-model = BlipForConditionalGeneration.from_pretrained(MODEL_NAME, device_map=device_map, torch_dtype=torch.float16)
+if device_map:
+    model = BlipForConditionalGeneration.from_pretrained(MODEL_NAME, device_map=device_map, torch_dtype=torch.float16)
+else:
+    model = BlipForConditionalGeneration.from_pretrained(MODEL_NAME)
 
 model = model.eval()
 
@@ -34,7 +37,7 @@ def describe():
         raw_image = Image.open(img).convert('RGB')
     except OSError:
         raw_image = Image.open(requests.get(img, stream=True).raw).convert('RGB')
-    inputs = processor(raw_image, text, return_tensors="pt").to(model.device, torch.float16)
+    inputs = processor(raw_image, text, return_tensors="pt").to(model.device, torch.float16 if device_map else None)
     out = model.generate(**inputs)
     desc = processor.decode(out[0], skip_special_tokens=True)
     print(f'{desc=}')
