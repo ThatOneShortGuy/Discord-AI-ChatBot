@@ -45,6 +45,12 @@ class Prefix(System):
     def __init__(self, content, prefix='<|prefix_begin|>', end_token='<|prefix_end|>'):
         super().__init__(content, prefix, end_token)
 
+def start_server():
+    if os.name == 'nt':
+        os.system("start python LangModelAPI/HostInferenceServer.py")
+    else:
+        os.system("python3 ./LangModelAPI/HostInferenceServer.py &")
+
 def is_asking_for_song(input):
     system = System('Do not elaborate.')
     prompter = Prompter(f'Use the context to answer the question.\n```\nJoe:\nTim, {input}\n.\n```\nWas Joe asking Tim to write a song?')
@@ -72,10 +78,7 @@ def chat(prompt, max_tokens=2048):
                 continue
             err = True
             print(f"Failed to connect to server. Attemping to start server. Please wait...")
-            if os.name == 'nt':
-                os.system("start python HostInferenceServer.py")
-            else:
-                os.system("python3 HostInferenceServer.py &")
+            start_server()
             time.sleep(5)
             continue
         break
@@ -102,10 +105,7 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
                 time.sleep(3)
                 continue
             yield f"Failed to connect to server. Attemping to start server. Please wait..."
-            if os.name == 'nt':
-                os.system("start python HostInferenceServer.py")
-            else:
-                os.system("python3 HostInferenceServer.py &")
+            start_server()
             time.sleep(5)
             yield f"Failed to connect to server. Attemping to start server. Please wait...\nServer starting. Please wait..."
             err = True

@@ -23,6 +23,12 @@ URL = f'http://{SERVER_IP}:{PORT}/generate'
 print("Server IP:", SERVER_IP)
 print("Port:", PORT)
 
+def start_server():
+    if os.name == 'nt':
+        os.system("start python StableDiffusionAPI/stableInferenceServer.py")
+    else:
+        os.system("python3 ./StableDiffusionAPI/stableInferenceServer.py &")
+
 def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, num_inference_steps=69):
     data = json.dumps({'prompt': prompt, 'height': height, 'width': width,
                        'type': img_type, 'num_inference_steps': num_inference_steps,
@@ -39,10 +45,7 @@ def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, nu
             if err:
                 time.sleep(3)
                 continue
-            if os.name == 'nt':
-                os.system("start python stableInferenceServer.py")
-            else:
-                os.system("python3 stableInferenceServer.py &")
+            start_server()
             err = True
             time.sleep(5)
     content = response.content

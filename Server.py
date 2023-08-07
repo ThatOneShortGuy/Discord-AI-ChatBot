@@ -9,10 +9,10 @@ import discord
 import torch
 from PIL import Image
 
+import LangModelAPI as m
+import StableDiffusionAPI as sd
+from CaptionerAPI import describe_image
 from makeConfig import makeConfig
-import OpenAssistantModel as m
-import StableDiffusion as sd
-from Captioner import describe_image
 
 profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
@@ -41,7 +41,7 @@ help_text = """Commands:
     `act_like <user_name> <n> [n2]` - act like the user with the given name and respond as them. n is the number of messages for context, optionally skipping the last n2 messages
 
     Image operations:
-    `generate <...>` - generate an image with the given prompt (normal Stable Diffusion)
+    `generate [-waifu] <...>` - generate an image with the given prompt (normal Stable Diffusion) or waifu (hakurei/waifu-diffusion) if `-waifu` flag is set
     """
 commands = [r'(?P<command>help)',
             r'(?P<command>summarize)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
@@ -50,7 +50,7 @@ commands = [r'(?P<command>help)',
             r'(?P<command>prompt)\s+(?P<text>.+)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
-            r'(?P<command>generate)\s+(?P<text>.+)']
+            r'(?P<command>generate)\s+(?P<isWaifu>\-waifu)?\s*(?P<text>.+)']
 
 class myClient(discord.Client):
     async def on_ready(self):
@@ -177,8 +177,17 @@ class myClient(discord.Client):
             return await self.send_message(m.act_like(sent_message_content, username), sent_message)
         if command == 'generate':
             sent_message = await message.channel.send('Generating...')
-            return await self.send_image(sd.generate(mat.group('text'), img_type='normal', width=512, height=512, num_inference_steps=130,
-                                                     neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry'), sent_message)
+            return await self.send_image(
+                sd.generate(
+                    mat.group('text'),
+                    img_type='waifu' if mat.group('isWaifu') else 'normal',
+                    width=512,
+                    height=512,
+                    num_inference_steps=130,
+                    neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry'
+                ),
+                sent_message
+            )
 
     def get_matching_command(self, content):
         for command in commands:
