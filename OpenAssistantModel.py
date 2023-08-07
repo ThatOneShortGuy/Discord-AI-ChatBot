@@ -62,10 +62,26 @@ def chat(prompt, max_tokens=2048):
     data = json.dumps({'text': prompt, 'max_tokens': max_tokens})
     headers = {'content-type': 'application/json'}
 
-    response = requests.post(GEN_URL, data=data, headers=headers)
+    err = False
+    while True:
+        try:
+            response = requests.post(GEN_URL, data=data, headers=headers)
+        except requests.exceptions.ConnectionError:
+            if err:
+                time.sleep(3)
+                continue
+            err = True
+            print(f"Failed to connect to server. Attemping to start server. Please wait...")
+            if os.name == 'nt':
+                os.system("start python HostInferenceServer.py")
+            else:
+                os.system("python3 HostInferenceServer.py &")
+            time.sleep(5)
+            continue
+        break
     return response.json()['generated_text']
 
-def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=2048):
+def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=2048, peft_model=''):
     system = System(system_input)
     prefix = Prefix(prefix_input)
     prompter = Prompter(input)
@@ -74,7 +90,7 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
     terminal_size = os.get_terminal_size()[0]
     print(f"{'Input'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{input}\033[0m")
     yield input
-    data = json.dumps({'text': input, 'max_tokens': max_tokens})
+    data = json.dumps({'text': input, 'max_tokens': max_tokens, 'peft_model': peft_model})
     headers = {'content-type': 'application/json'}
     # Stream the generated output
     err = False
@@ -98,7 +114,6 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
         
     for content in response.iter_content(chunk_size=None, decode_unicode=True):
         yield content
-    
 
 def predict(system, prefix, input, history=None):
     for response in stream_chat(system, prefix, input, history):
@@ -120,10 +135,9 @@ def response(history, input):
         yield response
     
 def prompt(input):
-    if is_asking_for_song(input):
-        print('Song')
+    peft_model = 'ThatOneShortGuy/MusicalFalcon' if is_asking_for_song(input) else ''
     system = 'Respond in as few words as possible.'
-    for response in stream_chat(system, None, input):
+    for response in stream_chat(system, None, input, peft_model=peft_model):
         yield response
 
 def roast(prefix, person):
