@@ -29,25 +29,30 @@ def start_server():
     else:
         os.system("python3 ./StableDiffusionAPI/stableInferenceServer.py &")
 
+def get_response(data, headers):
+    err = False
+    while True:
+        try:
+            response = requests.post(URL, data=data, headers=headers)
+            return response
+        except requests.exceptions.ConnectionError:
+            print('Waiting for server to start...')
+            if not err:
+                if config[profile]['image_description_ip'] != '127.0.0.1':
+                    print(f'Could not start image description server because remote server is not running on {config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}')
+                    return 'Image description failed'
+                start_server()
+                err = True
+            time.sleep(5)
+
 def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, num_inference_steps=69):
     data = json.dumps({'prompt': prompt, 'height': height, 'width': width,
                        'type': img_type, 'num_inference_steps': num_inference_steps,
                        'neg_prompt': neg_prompt, 'save': False})
     headers = {'content-type': 'application/json'}
-    err = False
-    # response = requests.post(URL, data=data, headers=headers)
-    while True:
-        try:
-            response = requests.post(URL, data=data, headers=headers)
-            break
-        except requests.exceptions.ConnectionError:
-            print('Waiting for server to start...')
-            if err:
-                time.sleep(3)
-                continue
-            start_server()
-            err = True
-            time.sleep(5)
+    response = get_response(data, headers)
+    if isinstance(response, str):
+        return response
     content = response.content
     image = io.BytesIO(content)
     image = Image.open(image)

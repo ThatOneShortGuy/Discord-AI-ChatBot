@@ -27,6 +27,9 @@ def describe_image(image):
             return requests.post(f'http://{config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}/describe', json={'image': image}).json()
         except requests.exceptions.ConnectionError:
             if not err:
+                if config[profile]['image_description_ip'] != '127.0.0.1':
+                    print(f'Could not start image description server because remote server is not running on {config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}')
+                    return 'Image description failed'
                 start_server()
                 err = True
             time.sleep(5)
