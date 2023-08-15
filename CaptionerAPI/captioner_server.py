@@ -38,7 +38,7 @@ def describe():
     except OSError:
         raw_image = Image.open(requests.get(img, stream=True).raw).convert('RGB')
     inputs = processor(raw_image, text, return_tensors="pt").to(model.device, torch.float16 if device_map else None)
-    out = model.generate(**inputs)
+    out = model.generate(**inputs, max_new_tokens=100)
     desc = processor.decode(out[0], skip_special_tokens=True)
     print(f'{desc=}')
     return jsonify(desc)

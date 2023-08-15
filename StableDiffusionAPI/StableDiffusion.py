@@ -38,14 +38,14 @@ def get_response(data, headers):
         except requests.exceptions.ConnectionError:
             print('Waiting for server to start...')
             if not err:
-                if config[profile]['image_description_ip'] != '127.0.0.1':
+                if config[profile]['image_gen_ip'] != '127.0.0.1':
                     print(f'Could not start image description server because remote server is not running on {config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}')
                     return 'Image description failed'
                 start_server()
                 err = True
             time.sleep(5)
 
-def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, num_inference_steps=69):
+def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, num_inference_steps=69, **kwargs):
     data = json.dumps({'prompt': prompt, 'height': height, 'width': width,
                        'type': img_type, 'num_inference_steps': num_inference_steps,
                        'neg_prompt': neg_prompt, 'save': False})
