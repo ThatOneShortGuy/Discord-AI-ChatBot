@@ -24,7 +24,11 @@ def describe_image(image):
     err = False
     while True:
         try:
-            return requests.post(f'http://{config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}/describe', json={'image': image}).json()
+            return requests.post(
+                f'http://{config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}/describe',
+                json={'image': image,
+                      'text': 'A meme'}
+            ).json()
         except requests.exceptions.ConnectionError:
             if not err:
                 if config[profile]['image_description_ip'] != '127.0.0.1':
