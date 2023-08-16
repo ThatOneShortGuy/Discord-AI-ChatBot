@@ -103,6 +103,7 @@ class myClient(discord.Client):
             name = name if name else message.author.name
             if content:
                 sent_message_content += f'<{name}>{content}</{name}>\n'
+        sent_message_content = re.sub(r'<\/(.*?)>\s+<\1>', r'\n', sent_message_content)
         return sent_message, sent_message_content
 
     async def send_message(self, generator, sent_message):
