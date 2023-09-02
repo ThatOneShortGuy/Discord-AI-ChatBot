@@ -186,8 +186,8 @@ class myClient(discord.Client):
                 sd.generate(
                     mat.group('text'),
                     img_type='waifu' if mat.group('isWaifu') else 'normal',
-                    width=512 if mat.group('isWaifu') else 1024,
-                    height=512 if mat.group('isWaifu') else 1024,
+                    width=512 if mat.group('isWaifu') else 512,
+                    height=512 if mat.group('isWaifu') else 512,
                     num_inference_steps=120 if mat.group('isWaifu') else 40,
                     neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry' if mat.group('isWaifu') else '',
                 ),
