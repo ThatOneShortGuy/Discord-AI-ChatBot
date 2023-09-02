@@ -1,15 +1,16 @@
 import gc
 import os
-import re
+import sys
 from configparser import ConfigParser
 from pprint import pprint
-import sys
+from threading import Thread
 
 import torch
 from accelerate import infer_auto_device_map, init_empty_weights
 from flask import Flask, Response, jsonify, request
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
+from transformers import (AutoConfig, AutoModelForCausalLM, AutoTokenizer,
+                          TextIteratorStreamer)
 
 config = ConfigParser()
 config.read('config.ini')
@@ -86,7 +87,6 @@ def generate():
     output_sequence = peft_model.generate(
             inputs=input_ids,
             max_new_tokens=max_tokens,
-            do_sample=True,
             top_k=69,
             top_p=.7,
             num_return_sequences=1,
@@ -112,41 +112,53 @@ def generate_stream():
     inp = content.get('text', '')
     max_tokens = content.get('max_tokens', tokenizer.model_max_length)
 
+    streamer = TextIteratorStreamer(
+        tokenizer=tokenizer,
+        skip_prompt=False,
+        skip_special_tokens=True
+    )
+
     # Stream the generated output
     def generate():
         peft_model = content.get('peft_model', '')
         if peft_model:
+            yield f'Loading PEFT model: {peft_model}\nPlease wait...'
             peft_model = PeftModel.from_pretrained(model, peft_model, is_trainable=False)
         else:
             peft_model = model
         peft_model = peft_model.eval()
 
-        output_sequence = tokenizer.encode(inp, return_tensors="pt", padding=True)
+        output_sequence = tokenizer.encode(inp + ' ', return_tensors="pt", padding=True) # Space at the end so the cache in streamer outputs the last token on first iteration
         init_length = output_sequence.shape[1]
         if init_length > max_tokens:
             yield f"Input is too long. It has {init_length} tokens, but the maximum is {max_tokens} tokens. Please shorten the input and try again."
             return
         print(f'Input length: {init_length} tokens')
         output_sequence = output_sequence.to(model.device)
-        for _ in range(max_tokens-init_length):
-            output_sequence = peft_model.generate(
-                inputs=output_sequence,
-                do_sample=True,
-                top_k=69,
-                top_p=.7,
-                num_return_sequences=1,
-                pad_token_id=tokenizer.eos_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-                repetition_penalty=1.2,
-                temperature=.95,
-                use_cache=True,
-                no_repeat_ngram_size=3,
-                max_new_tokens=1,
-            )
-            if output_sequence[0][-1] == tokenizer.eos_token_id:
-                break
-            decoded_output = tokenizer.decode(output_sequence[0][init_length:].tolist())
-            yield decoded_output
+
+        model_kwargs = dict(
+            input_ids=output_sequence,
+            streamer=streamer,
+            max_new_tokens=max_tokens-init_length,
+            pad_token_id=tokenizer.eos_token_id,
+            do_sample=True,
+            top_k=20,
+            temperature=.9,
+            repetition_penalty=1.2,
+            no_repeat_ngram_size=3,
+        )
+
+        t = Thread(target=peft_model.generate, kwargs=model_kwargs)
+        t.start()
+
+        next(streamer) # Skip the first output, which is the input
+
+        text = ''
+        for new_token in streamer:
+            text += new_token
+            yield text
+        
+        t.join()
     return Response(generate(), mimetype='text/plain')
 
 

@@ -30,7 +30,7 @@ os.chdir(os.path.dirname(os.path.realpath(__file__))) # Change or files may be s
 
 def init_upscaler():
     global upscaler
-    upscaler = StableDiffusionUpscalePipeline.from_pretrained('stabilityai/stable-diffusion-x4-upscaler', torch_dtype=torch.float16).to('cuda:0')
+    upscaler = StableDiffusionUpscalePipeline.from_pretrained('stabilityai/stable-diffusion-x4-upscaler', torch_dtype=torch.float16).to('cuda:1')
 
 def pipe_type(model_name):
     global pipe
@@ -41,7 +41,7 @@ def pipe_type(model_name):
         safety_checker=None,
         requires_safety_checker=False)
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe = pipe.to("cuda:0")
+    pipe = pipe.to("cuda:1")
     pipe.enable_xformers_memory_efficient_attention(attention_op=MemoryEfficientAttentionFlashAttentionOp)
     # Workaround for not accepting attention shape using VAE for Flash Attention
     pipe.vae.enable_xformers_memory_efficient_attention(attention_op=None)

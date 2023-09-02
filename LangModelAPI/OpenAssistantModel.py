@@ -120,13 +120,13 @@ def predict(system, prefix, input, history=None):
         yield response
 
 def summarize(prefix: str):
-    system = 'Summarize the conversation'
+    system = 'You are an AI assistant named "Dave". Summarize the conversation'
     input = f'How many different topics are there? What are they?'
     for response in stream_chat(system, prefix, input):
         yield response
     
 def query(conversation, query):
-    system = "- Answer questions from a conversation\n- Answer in as few words as possible"
+    system = "You are an assistant named \"Dave\". You:\n- Answer questions from a conversation\n- Answer in as few words as possible"
     for response in stream_chat(system, conversation, query):
         yield response
 
@@ -137,6 +137,7 @@ def response(history, input):
 def prompt(input):
     peft_model = 'ThatOneShortGuy/MusicalFalcon' if is_asking_for_song(input) else ''
     system = 'Respond in as few words as possible.'
+    input = f'You are now Dave. You respond to the name Dave. {input}'
     for response in stream_chat(system, None, input, peft_model=peft_model):
         yield response
 
