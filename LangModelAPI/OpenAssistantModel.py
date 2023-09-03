@@ -22,7 +22,7 @@ URL = f'http://{SERVER_IP}:{PORT}/generate_stream'
 GEN_URL = f'http://{SERVER_IP}:{PORT}/generate'
 
 class System:
-    def __init__(self, content, prefix='<|system|>', end_token='<|endoftext|>'):
+    def __init__(self, content, prefix='<|im_start|>system\n', end_token='<|im_end|>\n'):
         self.content = content
         self.prefix = prefix
         self.end_token = end_token
@@ -34,15 +34,15 @@ class System:
         return self.__str__()
     
 class Prompter(System):
-    def __init__(self, content, prefix='<|prompter|>', end_token='<|endoftext|>'):
+    def __init__(self, content, prefix='<|im_start|>user\n', end_token='<|im_end|>\n'):
         super().__init__(content, prefix, end_token)
 
 class Assistant(System):
-    def __init__(self, content, prefix='<|assistant|>', end_token='<|endoftext|>'):
+    def __init__(self, content, prefix='<|im_start|>assistant\n', end_token='<|im_end|>\n'):
         super().__init__(content, prefix, end_token)
 
 class Prefix(System):
-    def __init__(self, content, prefix='<|prefix_begin|>', end_token='<|prefix_end|>'):
+    def __init__(self, content, prefix='<|im_start|>context\n', end_token='<|im_end|>\n'):
         super().__init__(content, prefix, end_token)
 
 def start_server():
@@ -50,6 +50,25 @@ def start_server():
         os.system("start python LangModelAPI/HostInferenceServer.py")
     else:
         os.system("python3 ./LangModelAPI/HostInferenceServer.py &")
+
+def make_request(url, **kwargs):
+    err = False
+    while True:
+        try:
+            response = requests.get(url, **kwargs)
+            break
+        except requests.exceptions.ConnectionError:
+            if err:
+                time.sleep(3)
+                continue
+            err = True
+            print(f"Failed to connect to server. Attemping to start server. Please wait...")
+            start_server()
+            time.sleep(10)
+    return response
+
+def get_model_info():
+    return make_request(f'http://{SERVER_IP}:{PORT}/model_info').json()
 
 def is_asking_for_song(input):
     system = System('Do not elaborate.')
@@ -61,30 +80,17 @@ def is_asking_for_song(input):
     return not re.match(r'no', response, re.IGNORECASE)
     
 
-def chat(prompt, max_tokens=2048):
+def chat(prompt, max_tokens=2940):
     terminal_size = os.get_terminal_size()[0]
     print(f"{'Prompt'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{prompt}\033[0m")
 
     data = json.dumps({'text': prompt, 'max_tokens': max_tokens})
     headers = {'content-type': 'application/json'}
 
-    err = False
-    while True:
-        try:
-            response = requests.post(GEN_URL, data=data, headers=headers)
-        except requests.exceptions.ConnectionError:
-            if err:
-                time.sleep(3)
-                continue
-            err = True
-            print(f"Failed to connect to server. Attemping to start server. Please wait...")
-            start_server()
-            time.sleep(5)
-            continue
-        break
+    response = make_request(GEN_URL, data=data, headers=headers)
     return response.json()['generated_text']
 
-def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=2048, peft_model=''):
+def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=2940, peft_model=''):
     system = System(system_input)
     prefix = Prefix(prefix_input)
     prompter = Prompter(input)
@@ -135,7 +141,8 @@ def response(history, input):
         yield response
     
 def prompt(input):
-    peft_model = 'ThatOneShortGuy/MusicalFalcon' if is_asking_for_song(input) else ''
+    # peft_model = 'ThatOneShortGuy/MusicalFalcon' if is_asking_for_song(input) else ''
+    peft_model = ''
     system = 'Respond in as few words as possible.'
     input = f'You are now Dave. You respond to the name Dave. {input}'
     for response in stream_chat(system, None, input, peft_model=peft_model):
@@ -152,11 +159,11 @@ def roast(prefix, person):
     prefix = Prefix(prefix)
     input = Prompter(input)
     # for response in stream_chat(system, prefix, input):
-    for response in stream_chat(None, None, None, custom_input=f'{system}{prefix}{input}{Assistant(None).prefix}{person} is'):
-        yield f'{person} is' + response
+    for response in stream_chat(None, None, None, custom_input=f'{system}{prefix}{input}{Assistant(None).prefix}{person} is '):
+        yield f'{person} is ' + response
     
 def act_like(prefix, person):
-    for response in stream_chat(None, None, None, custom_input=f'{prefix}<|prompter|>{person}: '):
+    for response in stream_chat(None, None, None, custom_input=f'{prefix}{Assistant(None).prefix}{person}: '):
         yield response
 
 if __name__ == "__main__":

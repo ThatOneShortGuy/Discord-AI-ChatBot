@@ -55,10 +55,16 @@ commands = [r'(?P<command>help)',
 class myClient(discord.Client):
     async def on_ready(self):
         print(f'Logged on as {self.user} ({self.user.mention})')
+        self.model_info = m.get_model_info()
         self.terminal_size = os.get_terminal_size()[0]
         self.message_time_queue = deque(maxlen=12)
         self.conversation_history = {} # {channel_id: conversation}
         self.keep_history = False
+    
+    def get_user_name(self, user):
+        name = user.nick if isinstance(user, discord.Member) and user.nick else user.global_name
+        name = name if name else user.name
+        return name
 
     async def format_messages(self, content, message: discord.Message, n, n2='0'):
         if not n.isdigit():
@@ -72,8 +78,7 @@ class myClient(discord.Client):
         for message in messages:
             content = message.content
             for user in message.mentions:
-                name = user.nick if isinstance(user, discord.Member) and user.nick else user.global_name
-                name = name if name else user.name
+                name = self.get_user_name(user)
                 content = re.sub(f'<@!?{user.id}>', name, content)
             
             for embed in message.embeds:
@@ -102,7 +107,7 @@ class myClient(discord.Client):
             name = message.author.nick if isinstance(message.author, discord.Member) and message.author.nick else message.author.global_name
             name = name if name else message.author.name
             if content:
-                sent_message_content += f'<{name}>{content}</{name}>\n'
+                sent_message_content += f'{self.model_info["start_token"]}{name}\n{content}{self.model_info["end_token"]}\n'
         sent_message_content = re.sub(r'<\/(.*?)>\s+<\1>', r'\n', sent_message_content)
         return sent_message, sent_message_content
 
@@ -123,7 +128,7 @@ class myClient(discord.Client):
                 self.message_time_queue.popleft()
             print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
         print()
-        self.conversation_history[sent_message.channel.id] += f'{response}<|endoftext|>'
+        self.conversation_history[sent_message.channel.id] += f'{response}{self.model_info["end_token"]}\n'
         return await sent_message.edit(content=response)
     
     async def send_image(self, image: Image, sent_message):
@@ -139,7 +144,7 @@ class myClient(discord.Client):
         if not message.content:
             return
         content = message.content.split()
-        mentions = {user.id: user.name for user in message.mentions}
+        mentions = {user.id: self.get_user_name(user) for user in message.mentions}
         if content.pop(0) != self.user.mention:
             return
         if not content:

@@ -37,7 +37,7 @@ max_memory = {0: '20GB', 1: '9GB', 'cpu': '59GB'}
 
 with init_empty_weights():
     model = AutoModelForCausalLM.from_config(model_config, torch_dtype=torch.float16, trust_remote_code=True)
-    device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=[''])
+    device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=['LlamaDecoderLayer'])
 
 print('Device map:')
 pprint(device_map)
@@ -114,7 +114,7 @@ def generate_stream():
 
     streamer = TextIteratorStreamer(
         tokenizer=tokenizer,
-        skip_prompt=False,
+        skip_prompt=True,
         skip_special_tokens=True
     )
 
@@ -128,7 +128,7 @@ def generate_stream():
             peft_model = model
         peft_model = peft_model.eval()
 
-        output_sequence = tokenizer.encode(inp + ' ', return_tensors="pt", padding=True) # Space at the end so the cache in streamer outputs the last token on first iteration
+        output_sequence = tokenizer.encode(inp, return_tensors="pt", padding=True)
         init_length = output_sequence.shape[1]
         if init_length > max_tokens:
             yield f"Input is too long. It has {init_length} tokens, but the maximum is {max_tokens} tokens. Please shorten the input and try again."
@@ -151,16 +151,31 @@ def generate_stream():
         t = Thread(target=peft_model.generate, kwargs=model_kwargs)
         t.start()
 
-        next(streamer) # Skip the first output, which is the input
-
         text = ''
         for new_token in streamer:
             text += new_token
             yield text
         
         t.join()
+        del output_sequence
+        
+        gc.collect()
+        torch.cuda.ipc_collect()
+        torch.cuda.empty_cache()
     return Response(generate(), mimetype='text/plain')
 
+@app.route('/model_info', methods=['GET'])
+def model_info():
+    '''
+    Returns the model's information such as the model's name, max num tokens.
+    Also returns some of the formatting information such as the start and end token.
+    '''
+    return jsonify({
+        'model_name': MODEL_NAME,
+        'max_num_tokens': tokenizer.model_max_length,
+        'start_token': tokenizer.bos_token,
+        'end_token': tokenizer.eos_token,
+    })
 
 if __name__ == '__main__':
     app.run(
