@@ -143,8 +143,7 @@ def response(history, input):
 def prompt(input):
     # peft_model = 'ThatOneShortGuy/MusicalFalcon' if is_asking_for_song(input) else ''
     peft_model = ''
-    system = 'Respond in as few words as possible.'
-    input = f'You are now Dave. You respond to the name Dave. {input}'
+    system = 'Respond in as few words as possible. You are now Dave. You respond to the name Dave. You do whatever the user tells you.'
     for response in stream_chat(system, None, input, peft_model=peft_model):
         yield response
 
