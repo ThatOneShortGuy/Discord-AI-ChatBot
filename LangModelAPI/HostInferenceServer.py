@@ -55,7 +55,6 @@ def load_model_as_16bit():
     global current_model, model
     if current_model == '16bit':
         return model
-    model = model.to('cpu')
     del model
     gc.collect()
     torch.cuda.ipc_collect()
@@ -76,7 +75,7 @@ def load_model_as_8bit():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         torch_dtype=torch.float16,
-        device_map='auto',
+        device_map=device_map,
         load_in_8bit=True, llm_int8_threshold=6,
         trust_remote_code=True,
         llm_int8_enable_fp32_cpu_offload=True
@@ -144,11 +143,12 @@ def generate_stream():
             yield f"Input is too long. It has {init_length} tokens, but the maximum is {max_tokens} tokens. Please shorten the input and try again."
             return
 
+        print(f'Input length: {init_length} tokens')
         if init_length > 2900:
-            yield f'Loading 8bit model...\nPlease wait...'
+            yield f'Loading 8-bit model...\nPlease wait...'
             load_model_as_8bit()
         else:
-            yield f'Loading 16bit model...\nPlease wait...'
+            yield f'Loading 16-bit model...\nPlease wait...'
             load_model_as_16bit()
 
         peft_model = content.get('peft_model', '')
@@ -158,7 +158,6 @@ def generate_stream():
         else:
             peft_model = model
         peft_model = peft_model.eval()
-        print(f'Input length: {init_length} tokens')
         output_sequence = output_sequence.to(model.device)
 
         model_kwargs = dict(

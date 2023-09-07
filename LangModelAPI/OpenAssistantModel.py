@@ -80,7 +80,7 @@ def is_asking_for_song(input):
     return not re.match(r'no', response, re.IGNORECASE)
     
 
-def chat(prompt, max_tokens=2940):
+def chat(prompt, max_tokens=5000):
     terminal_size = os.get_terminal_size()[0]
     print(f"{'Prompt'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{prompt}\033[0m")
 
@@ -97,7 +97,7 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
     assistant = Assistant(history)
     input = f'{system}{prefix}{history if history else ""}{prompter}{assistant.prefix}' if custom_input is None else custom_input
     terminal_size = os.get_terminal_size()[0]
-    print(f"{'Input'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{input}\033[0m")
+    print(f"{'Input'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{input}\033[0m", end='')
     yield input
     data = json.dumps({'text': input, 'max_tokens': max_tokens, 'peft_model': peft_model})
     headers = {'content-type': 'application/json'}
@@ -127,7 +127,7 @@ def predict(system, prefix, input, history=None):
 
 def summarize(prefix: str):
     system = 'You are an AI assistant named "Dave". You summarize the conversation'
-    input = f'How many different topics are there in the above conversation? What are they?'
+    input = f'How many different topics are there in the above conversation? What are they? Make a bulleted list of the topics.'
     for response in stream_chat(system, prefix, input):
         yield response
     
