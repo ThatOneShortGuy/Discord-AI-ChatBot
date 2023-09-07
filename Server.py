@@ -75,6 +75,7 @@ class myClient(discord.Client):
         messages = [message async for message in messages][:n2:-1]
         sent_message = await message.channel.send('Working on it...', silent=True)
         self.message_time_queue.append(time.time())
+        previous_author = None
         for message in messages:
             content = message.content
             for user in message.mentions:
@@ -106,8 +107,15 @@ class myClient(discord.Client):
 
             name = message.author.nick if isinstance(message.author, discord.Member) and message.author.nick else message.author.global_name
             name = name if name else message.author.name
-            if content:
-                sent_message_content += f'{self.model_info["start_token"]}{name}\n{content}{self.model_info["end_token"]}\n'
+            if content and previous_author != name:
+                if previous_author:
+                    sent_message_content += self.model_info["end_token"] + '\n'
+                sent_message_content += f'{self.model_info["start_token"]}{name}\n{content}'
+                previous_author = name
+            elif content:
+                sent_message_content += f'\n{content}'
+            
+
         sent_message_content = re.sub(r'<\/(.*?)>\s+<\1>', r'\n', sent_message_content)
         return sent_message, sent_message_content
 
@@ -122,6 +130,8 @@ class myClient(discord.Client):
         for response in generator:
             if response and time.time() - t > 1.5 and len(self.message_time_queue) < self.message_time_queue.maxlen:
                 t = time.time()
+                if re.match(r'^\s*$', response):
+                    return await sent_message.edit(content='[Empty response]')
                 await sent_message.edit(content=response)
                 self.message_time_queue.append(time.time())
             while len(self.message_time_queue) and time.time() - self.message_time_queue[0] < 60:
