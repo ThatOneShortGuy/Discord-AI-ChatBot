@@ -33,7 +33,7 @@ MODEL_NAME = config[profile]['language_model']
 
 model_config = AutoConfig.from_pretrained(MODEL_NAME, trust_remote_code=True)
 
-max_memory = {0: '20GB', 1: '9GB', 'cpu': '59GB'}
+max_memory = {0: '19000MB', 1: '8000MB', 'cpu': '59GB'}
 
 with init_empty_weights():
     model = AutoModelForCausalLM.from_config(model_config, torch_dtype=torch.float16, trust_remote_code=True)
@@ -43,30 +43,46 @@ print('Device map:')
 pprint(device_map)
 print('Using model:', MODEL_NAME)
 
+
+current_model = '16bit'
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_size='left')
 print(f'Max token length: {tokenizer.model_max_length}')
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map=device_map, trust_remote_code=True).half()
-# model = AutoModelForCausalLM.from_pretrained(
-#                                              MODEL_NAME,
-#                                              torch_dtype=torch.float16,
-#                                              device_map=device_map,
-#                                              load_in_8bit=True, llm_int8_threshold=0,
-#                                              trust_remote_code=True,
-#                                              llm_int8_enable_fp32_cpu_offload=True)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map=device_map, trust_remote_code=True).half().eval()
 
 # model = PeftModel.from_pretrained(model, "ThatOneShortGuy/MusicalFalcon", is_trainable=False)
 
-model = model.eval()
-try:
-    model = torch.compile(model, mode='max-autotune', fullgraph=True)
-except Exception as e:
-    print("Could not compile model:", e)
+def load_model_as_16bit():
+    global current_model, model
+    if current_model == '16bit':
+        return model
+    model = model.to('cpu')
+    del model
+    gc.collect()
+    torch.cuda.ipc_collect()
+    torch.cuda.empty_cache()
+    print('Loading model as 16bit')
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map=device_map, trust_remote_code=True).half().eval()
+    current_model = '16bit'
 
-
-# batch = tokenizer("Hello, my dog is cute", return_tensors="pt", padding=True, truncation=True).to(model.device)
-# tensors = model.generate(inputs=batch.input_ids, max_new_tokens=69, num_return_sequences=1)
-# print(f'Tensors: {tensors}')
-# print(tokenizer.decode(tensors.detach()[0].tolist())) # Warmup
+def load_model_as_8bit():
+    global current_model, model
+    if current_model == '8bit':
+        return model
+    del model
+    gc.collect()
+    torch.cuda.ipc_collect()
+    torch.cuda.empty_cache()
+    print('Loading model as 8bit')
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        torch_dtype=torch.float16,
+        device_map='auto',
+        load_in_8bit=True, llm_int8_threshold=6,
+        trust_remote_code=True,
+        llm_int8_enable_fp32_cpu_offload=True
+        )
+    model = model.eval()
+    current_model = '8bit'
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -120,6 +136,21 @@ def generate_stream():
 
     # Stream the generated output
     def generate():
+        global model
+
+        output_sequence = tokenizer.encode(inp, return_tensors="pt", padding=True)
+        init_length = output_sequence.shape[1]
+        if init_length > max_tokens:
+            yield f"Input is too long. It has {init_length} tokens, but the maximum is {max_tokens} tokens. Please shorten the input and try again."
+            return
+
+        if init_length > 2900:
+            yield f'Loading 8bit model...\nPlease wait...'
+            load_model_as_8bit()
+        else:
+            yield f'Loading 16bit model...\nPlease wait...'
+            load_model_as_16bit()
+
         peft_model = content.get('peft_model', '')
         if peft_model:
             yield f'Loading PEFT model: {peft_model}\nPlease wait...'
@@ -127,12 +158,6 @@ def generate_stream():
         else:
             peft_model = model
         peft_model = peft_model.eval()
-
-        output_sequence = tokenizer.encode(inp, return_tensors="pt", padding=True)
-        init_length = output_sequence.shape[1]
-        if init_length > max_tokens:
-            yield f"Input is too long. It has {init_length} tokens, but the maximum is {max_tokens} tokens. Please shorten the input and try again."
-            return
         print(f'Input length: {init_length} tokens')
         output_sequence = output_sequence.to(model.device)
 
@@ -143,7 +168,7 @@ def generate_stream():
             pad_token_id=tokenizer.eos_token_id,
             do_sample=True,
             top_k=20,
-            temperature=.9,
+            temperature=.7,
             repetition_penalty=1.2,
             no_repeat_ngram_size=3,
         )
