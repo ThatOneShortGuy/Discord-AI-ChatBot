@@ -42,7 +42,7 @@ class Assistant(System):
         super().__init__(content, prefix, end_token)
 
 class Prefix(System):
-    def __init__(self, content, prefix='<|im_start|>context\n', end_token='<|im_end|>\n'):
+    def __init__(self, content, prefix='', end_token=''):
         super().__init__(content, prefix, end_token)
 
 def start_server():
@@ -90,7 +90,7 @@ def chat(prompt, max_tokens=2940):
     response = make_request(GEN_URL, data=data, headers=headers)
     return response.json()['generated_text']
 
-def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=2940, peft_model=''):
+def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=5000, peft_model=''):
     system = System(system_input)
     prefix = Prefix(prefix_input)
     prompter = Prompter(input)
@@ -126,8 +126,8 @@ def predict(system, prefix, input, history=None):
         yield response
 
 def summarize(prefix: str):
-    system = 'You are an AI assistant named "Dave". Summarize the conversation'
-    input = f'How many different topics are there? What are they?'
+    system = 'You are an AI assistant named "Dave". You summarize the conversation'
+    input = f'How many different topics are there in the above conversation? What are they?'
     for response in stream_chat(system, prefix, input):
         yield response
     
