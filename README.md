@@ -9,6 +9,7 @@ This is a simple project that uses open-source models from [HuggingFace](https:/
 1. Ensure the [requirements](#Requirements) are met
 2. Clone the repository
 3. Install the requirements
+- [Pytorch](https://pytorch.org/get-started/locally/)
 ```bash
 python3 -m pip install -r requirements.txt
 ```
