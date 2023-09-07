@@ -13,6 +13,7 @@ import LangModelAPI as m
 import StableDiffusionAPI as sd
 from CaptionerAPI import describe_image
 from makeConfig import makeConfig
+from CacheUsers import UserCache
 
 profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
@@ -60,10 +61,15 @@ class myClient(discord.Client):
         self.message_time_queue = deque(maxlen=12)
         self.conversation_history = {} # {channel_id: conversation}
         self.keep_history = False
+        self.user_cache = UserCache()
     
     def get_user_name(self, user):
+        name = self.user_cache.get_user(str(user.id))
+        if name:
+            return name
         name = user.nick if isinstance(user, discord.Member) and user.nick else user.global_name
         name = name if name else user.name
+        self.user_cache.add_user(str(user.id), name)
         return name
 
     async def format_messages(self, content, message: discord.Message, n, n2='0'):
@@ -105,8 +111,7 @@ class myClient(discord.Client):
                         content += f"<{attachment.content_type}>{describe_image(attachment.url)}</{attachment.content_type}>"
 
 
-            name = message.author.nick if isinstance(message.author, discord.Member) and message.author.nick else message.author.global_name
-            name = name if name else message.author.name
+            name = self.get_user_name(message.author)
             if content and previous_author != name:
                 if previous_author:
                     sent_message_content += self.model_info["end_token"] + '\n'
@@ -154,11 +159,11 @@ class myClient(discord.Client):
         if not message.content:
             return
         content = message.content.split()
-        mentions = {user.id: self.get_user_name(user) for user in message.mentions}
         if content.pop(0) != self.user.mention:
             return
         if not content:
             return
+        mentions = {user.id: self.get_user_name(user) for user in message.mentions}
         content = ' '.join(content)
 
         mat = self.get_matching_command(content)
