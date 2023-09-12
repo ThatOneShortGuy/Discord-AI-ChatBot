@@ -176,30 +176,37 @@ class myClient(discord.Client):
         if command == 'help':
             await message.channel.send(help_text)
             return
+            
         if command == 'summarize':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             return await self.send_message(m.summarize(sent_message_content), sent_message)
+            
         if command == 'query':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             return await self.send_message(m.query(sent_message_content, mat.group('text')), sent_message)
+            
         if command == 'response':
             sent_message = await message.channel.send('Working on it...')
             self.keep_history = True
             history = self.conversation_history[sent_message.channel.id] if sent_message.channel.id in self.conversation_history else None
             return await self.send_message(m.response(history, mat.group('text')), sent_message)
+            
         if command == 'prompt':
             sent_message = await message.channel.send('Working on it...')
             return await self.send_message(m.prompt(mat.group('text')), sent_message)
+            
         if command == 'roast':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(m.roast(sent_message_content, username), sent_message)
+            
         if command == 'act_like':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(m.act_like(sent_message_content, username), sent_message)
+            
         if command == 'generate':
             sent_message = await message.channel.send('Generating...')
             return await self.send_image(
