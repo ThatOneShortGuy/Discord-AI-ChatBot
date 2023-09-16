@@ -58,7 +58,7 @@ class myClient(discord.Client):
         print(f'Logged on as {self.user} ({self.user.mention})')
         self.model_info = m.get_model_info()
         self.terminal_size = os.get_terminal_size()[0]
-        self.message_time_queue = deque(maxlen=12)
+        self.message_time_queue = deque(maxlen=24)
         self.conversation_history = {} # {channel_id: conversation}
         self.keep_history = False
         self.user_cache = UserCache()
@@ -71,6 +71,13 @@ class myClient(discord.Client):
         name = name if name else user.name
         self.user_cache.add_user(str(user.id), name)
         return name
+    
+    async def edit_message(self, message: discord.Message, content: str, no_check=False):
+        if len(self.message_time_queue) and time.time() - self.message_time_queue[0] > 60 or no_check:
+            self.message_time_queue.popleft()
+        if len(self.message_time_queue) < self.message_time_queue.maxlen and (not len(self.message_time_queue) or (time.time() - self.message_time_queue[-1]) > 1.5) or no_check:
+            self.message_time_queue.append(time.time())
+            return await message.edit(content=content)
 
     async def format_messages(self, content, message: discord.Message, n, n2='0'):
         if not n.isdigit():
@@ -82,14 +89,14 @@ class myClient(discord.Client):
         sent_message = await message.channel.send('Working on it...', silent=True)
         self.message_time_queue.append(time.time())
         previous_author = None
-        for message in messages:
+        num_messages = len(messages)
+        for message_num, message in enumerate(messages):
             content = message.content
             for user in message.mentions:
                 name = self.get_user_name(user)
                 content = re.sub(f'<@!?{user.id}>', name, content)
             
             for embed in message.embeds:
-                from pprint import pprint
                 embed = embed.to_dict()
                 if 'url' not in embed.keys():
                     continue
@@ -98,6 +105,7 @@ class myClient(discord.Client):
                     url = embed['thumbnail']['url']
                 
                 if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
+                    await self.edit_message(sent_message, f'Describing {url}')
                     url_replacement = f"<{embed['type']}>{describe_image(url)}</{embed['type']}>"
                 else:
                     url_replacement = ""
@@ -108,6 +116,7 @@ class myClient(discord.Client):
             if message.attachments:
                 for attachment in message.attachments:
                     if attachment.content_type == 'image/png' or attachment.content_type == 'image/jpeg':
+                        await sent_message.edit(content=f'Analyzing {attachment.url}\n{message_num+1}/{num_messages} ({(message_num+1)/num_messages:.2%}) messages')
                         content += f"<{attachment.content_type}>{describe_image(attachment.url)}</{attachment.content_type}>"
 
 
@@ -120,12 +129,11 @@ class myClient(discord.Client):
             elif content:
                 sent_message_content += f'\n{content}'
             
-
+        sent_message_content += self.model_info["end_token"] + '\n'
         sent_message_content = re.sub(r'<\/(.*?)>\s+<\1>', r'\n', sent_message_content)
         return sent_message, sent_message_content
 
-    async def send_message(self, generator, sent_message):
-        t = time.time()
+    async def send_message(self, generator, sent_message: discord.Message):
         self.terminal_size = os.get_terminal_size()[0]
         if sent_message.channel.id not in self.conversation_history or not self.keep_history:
             self.conversation_history[sent_message.channel.id] = next(generator)
@@ -133,18 +141,14 @@ class myClient(discord.Client):
             self.conversation_history[sent_message.channel.id] += next(generator).replace(self.conversation_history[sent_message.channel.id], '')
             self.keep_history = False
         for response in generator:
-            if response and time.time() - t > 1.5 and len(self.message_time_queue) < self.message_time_queue.maxlen:
-                t = time.time()
-                if re.match(r'^\s*$', response):
-                    return await sent_message.edit(content='[Empty response]')
-                await sent_message.edit(content=response)
-                self.message_time_queue.append(time.time())
-            while len(self.message_time_queue) and time.time() - self.message_time_queue[0] < 60:
-                self.message_time_queue.popleft()
+            if re.match(r'^\s*$', response):
+                await self.edit_message(sent_message, '[Empty response]', no_check=True)
+                continue
+            await self.edit_message(sent_message, response)
             print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
         print()
         self.conversation_history[sent_message.channel.id] += f'{response}{self.model_info["end_token"]}\n'
-        return await sent_message.edit(content=response)
+        return await self.edit_message(sent_message, response, no_check=True)
     
     async def send_image(self, image: Image, sent_message):
         image.save('temp.jpg', quality=95, subsampling=0)
