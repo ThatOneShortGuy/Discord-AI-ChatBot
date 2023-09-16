@@ -80,7 +80,7 @@ def is_asking_for_song(input):
     return not re.match(r'no', response, re.IGNORECASE)
     
 
-def chat(prompt, max_tokens=5000):
+def chat(prompt, max_tokens=8192):
     terminal_size = os.get_terminal_size()[0]
     print(f"{'Prompt'.center(terminal_size)}\n{'-'*terminal_size}\n\033[92m{prompt}\033[0m")
 
@@ -90,7 +90,7 @@ def chat(prompt, max_tokens=5000):
     response = make_request(GEN_URL, data=data, headers=headers)
     return response.json()['generated_text']
 
-def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=5000, peft_model=''):
+def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=8192, peft_model=''):
     system = System(system_input)
     prefix = Prefix(prefix_input)
     prompter = Prompter(input)
