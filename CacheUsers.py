@@ -1,5 +1,4 @@
 import json
-from pprint import pprint
 
 class UserCache:
     def __init__(self, cache_file='usercache.json'):
@@ -20,6 +19,7 @@ class UserCache:
             self.save_cache()
     
     def get_user(self, userid: str) -> str:
+        self.load_cache()
         if userid in self.cache:
             user = self.cache[userid]
             if user['name']:
