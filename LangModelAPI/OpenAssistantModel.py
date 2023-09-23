@@ -162,7 +162,7 @@ def roast(prefix, person):
         yield f'{person} is ' + response
     
 def act_like(prefix, person):
-    for response in stream_chat(None, None, None, custom_input=f'{prefix}{Assistant(None).prefix}{person}\n'):
+    for response in stream_chat(None, None, None, custom_input=f'{prefix}{get_model_info()["start_token"]}{person}\n'):
         yield response
 
 if __name__ == "__main__":
