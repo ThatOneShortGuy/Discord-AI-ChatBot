@@ -20,14 +20,14 @@ def start_server():
     else:
         os.system("python3 ./CaptionerAPI/captioner_server.py &")
 
-def describe_image(image):
+def describe_image(image, text=''):
     err = False
     while True:
         try:
             return requests.post(
                 f'http://{config[profile]["image_description_ip"]}:{config[profile]["image_description_port"]}/describe',
                 json={'image': image,
-                      'text': 'A meme'}
+                      'text': text}
             ).json()
         except requests.exceptions.ConnectionError:
             if not err:
