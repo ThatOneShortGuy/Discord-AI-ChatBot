@@ -18,6 +18,9 @@ DEFAULTS = {
     'image_gen_port': '5001',
     'sentiment_ip': '127.0.0.1',
     'sentiment_port': '5003',
+    'MemeDB_ip': '127.0.0.1',
+    'MemeDB_port': '8888',
+    'meme_channel_id': '744987855335456900',
 }
 
 def makeConfig(profile='default'):
@@ -178,6 +181,36 @@ def makeConfig(profile='default'):
         if sentiment_port == '':
             sentiment_port = DEFAULTS['sentiment_port']
         config[profile]['sentiment_port'] = sentiment_port
+        with open('config.ini', 'w') as f:
+            config.write(f)
+    
+    try:
+        meme_db_ip = config[profile]['MemeDB_ip']
+    except KeyError:
+        meme_db_ip = input(f'Enter the IP of the MemeDB server (default: {DEFAULTS["MemeDB_ip"]}):\n')
+        if meme_db_ip == '':
+            meme_db_ip = DEFAULTS['MemeDB_ip']
+        config[profile]['MemeDB_ip'] = meme_db_ip
+        with open('config.ini', 'w') as f:
+            config.write(f)
+        
+    try:
+        meme_db_port = config[profile]['MemeDB_port']
+    except KeyError:
+        meme_db_port = input(f'Enter the port of the MemeDB server (default: {DEFAULTS["MemeDB_port"]}):\n')
+        if meme_db_port == '':
+            meme_db_port = DEFAULTS['MemeDB_port']
+        config[profile]['MemeDB_port'] = meme_db_port
+        with open('config.ini', 'w') as f:
+            config.write(f)
+
+    try:
+        meme_channel_id = config[profile]['meme_channel_id']
+    except KeyError:
+        meme_channel_id = input(f'Enter the channel ID of the meme channel:\n')
+        if meme_channel_id == '':
+            meme_channel_id = DEFAULTS['meme_channel_id']
+        config[profile]['meme_channel_id'] = meme_channel_id
         with open('config.ini', 'w') as f:
             config.write(f)
 

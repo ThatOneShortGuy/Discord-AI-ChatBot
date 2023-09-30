@@ -1,5 +1,5 @@
 import json
-from pprint import pprint
+from typing import Optional
 
 class UserCache:
     def __init__(self, cache_file='usercache.json'):
@@ -19,7 +19,20 @@ class UserCache:
             self.cache[userid] = {'nick': nick, 'name': ''}
             self.save_cache()
     
-    def get_user(self, userid: str) -> str:
+    def add_bot(self, nick: str) -> None:
+        if 'bots' not in self.cache.keys():
+            self.cache['bots'] = {}
+        if nick not in self.cache['bots'].keys():
+            self.cache['bots'][nick] = ""
+            self.save_cache()
+    
+    def get_user(self, userid: str, nick: Optional[str] = None) -> str:
+        self.load_cache()
+        if userid == 'bots':
+            if not nick:
+                raise ValueError('Bot nick not specified.')
+            self.add_bot(nick)
+            return self.cache['bots'][nick] if self.cache['bots'][nick] else nick
         if userid in self.cache:
             user = self.cache[userid]
             if user['name']:
