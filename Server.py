@@ -7,6 +7,7 @@ from configparser import ConfigParser
 from typing import Union
 
 import discord
+import requests
 import torch
 from PIL import Image
 
@@ -15,6 +16,7 @@ import StableDiffusionAPI as sd
 from CaptionerAPI import describe_image
 from makeConfig import makeConfig
 from CacheUsers import UserCache
+from MemeDbAPI import MemeDatabase
 
 profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
@@ -63,6 +65,7 @@ class myClient(discord.Client):
         self.conversation_history = {} # {channel_id: conversation}
         self.keep_history = False
         self.user_cache = UserCache()
+        self.meme_client = MemeDatabase('MemeDB', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'])
     
     def get_user_name(self, user: Union[discord.User, discord.Member]):
         name = self.user_cache.get_user(str(user.id))
@@ -154,16 +157,39 @@ class myClient(discord.Client):
         self.conversation_history[sent_message.channel.id] += f'{response}{self.model_info["end_token"]}\n'
         return await self.edit_message(sent_message, response, no_check=True)
     
-    async def send_image(self, image: Image, sent_message):
+    async def send_image(self, image: Image.Image, sent_message):
         image.save('temp.jpg', quality=95, subsampling=0)
-        image = discord.File('temp.jpg')
-        await sent_message.channel.send(file=image, silent=True)
+        discord_image = discord.File('temp.jpg')
+        await sent_message.channel.send(file=discord_image, silent=True)
 
         # Delete the sent message
         await sent_message.delete()
 
-    async def on_message(self, message):
-        torch.cuda.empty_cache()
+    def on_meme(self, message: discord.Message):
+        imgs_to_add_to_db: list[Image.Image] = []
+        for embedObj in message.embeds:
+                embed = embedObj.to_dict()
+                if 'url' not in embed.keys():
+                    continue
+                url = embed['url'] # type: ignore
+                if 'thumbnail' in embed.keys():
+                    url = embed['thumbnail']['url'] # type: ignore
+                
+                if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
+                    imgs_to_add_to_db.append(Image.open(requests.get(url, stream=True).raw))
+            
+        for attachment in message.attachments:
+            if attachment.content_type == 'image/png' or attachment.content_type == 'image/jpeg':
+                imgs_to_add_to_db.append(Image.open(requests.get(attachment.url, stream=True).raw))
+
+        if imgs_to_add_to_db:
+            img_vec = (self.meme_client.format_img(img) for img in imgs_to_add_to_db)
+            status, response = self.meme_client.insert([{'MessageID': message.id, 'PixelVec': img} for img in img_vec])
+            print(response['message'])
+
+    async def on_message(self, message: discord.Message):
+        if message.channel.id == int(config[profile]['meme_channel_id']):
+            self.on_meme(message)
         if not message.content:
             return
         content = message.content.split()
