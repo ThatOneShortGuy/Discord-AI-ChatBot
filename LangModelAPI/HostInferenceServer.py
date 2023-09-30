@@ -29,7 +29,6 @@ app = Flask(__name__)
 MODEL_NAME = "TheBloke/CodeLlama-13B-oasst-sft-v10-GGUF"
 
 tokenizer = AutoTokenizer.from_pretrained(config[profile]['language_model'])
-print(f'Max num tokens: {tokenizer.model_max_length}')
 
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
@@ -39,6 +38,8 @@ model = AutoModelForCausalLM.from_pretrained(
     context_length=8192,
 )
 
+print(f'Max num tokens: {model.context_length}')
+
 @app.route('/generate', methods=['POST'])
 def generate():
     content = request.json
@@ -46,7 +47,7 @@ def generate():
     max_tokens = content.get('max_tokens', model.context_length)
     peft_model = content.get('peft_model', '')
 
-    inp_size = len(tokenizer.encode(inp))
+    inp_size = len(model.tokenize(inp))
     if inp_size > max_tokens:
         return jsonify({'generated_text': f'Input too long ({inp_size} > {max_tokens})'})
 
@@ -61,7 +62,7 @@ def generate_stream():
     inp = content.get('text', '')
     max_tokens = content.get('max_tokens', model.context_length)
 
-    inp_size = len(tokenizer.encode(inp))
+    inp_size = len(model.tokenize(inp))
 
     # Stream the generated output
     def generate():
@@ -90,7 +91,7 @@ def model_info():
     '''
     return jsonify({
         'model_name': MODEL_NAME,
-        'max_num_tokens': tokenizer.model_max_length,
+        'max_num_tokens': model.context_length,
         'start_token': tokenizer.bos_token,
         'end_token': tokenizer.eos_token,
     })
