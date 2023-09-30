@@ -83,6 +83,19 @@ def generate_stream():
 
     return Response(generate(), mimetype='text/plain')
 
+@app.route('/embeddings', methods=['POST'])
+def embeddings():
+    content = request.json
+    inp = content.get('text', '')
+
+    output = model.embed(
+        inp,
+        threads=1,
+        batch_size=512,
+    )
+
+    return jsonify({'embeddings': output})
+
 @app.route('/model_info', methods=['GET'])
 def model_info():
     '''
