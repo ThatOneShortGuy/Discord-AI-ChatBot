@@ -4,6 +4,7 @@ import sys
 import time
 from collections import deque
 from configparser import ConfigParser
+from typing import Union
 
 import discord
 import torch
@@ -63,13 +64,15 @@ class myClient(discord.Client):
         self.keep_history = False
         self.user_cache = UserCache()
     
-    def get_user_name(self, user):
+    def get_user_name(self, user: Union[discord.User, discord.Member]):
         name = self.user_cache.get_user(str(user.id))
-        if name:
-            return name
-        name = user.nick if isinstance(user, discord.Member) and user.nick else user.global_name
-        name = name if name else user.name
-        self.user_cache.add_user(str(user.id), name)
+        if not name:
+            name = user.nick if isinstance(user, discord.Member) and user.nick else user.global_name
+            name = name if name else user.name
+            self.user_cache.add_user(str(user.id), name) if not user.bot else self.user_cache.add_bot(name)
+
+        if user.bot:
+            name = self.user_cache.get_user('bots', name)
         return name
     
     async def edit_message(self, message: discord.Message, content: str, no_check=False):
@@ -110,6 +113,7 @@ class myClient(discord.Client):
                 else:
                     url_replacement = ""
                 
+                embed['url'] = re.sub(r'([(^)|*$])', r'\\\1', embed['url'])
                 content = re.sub(embed['url'], url_replacement, content)
                     
 
