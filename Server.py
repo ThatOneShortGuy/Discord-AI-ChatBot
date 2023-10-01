@@ -65,7 +65,7 @@ class myClient(discord.Client):
         self.conversation_history: dict[int, str] = {} # {channel_id: conversation}
         self.keep_history = False
         self.user_cache = UserCache()
-        self.meme_client = MemeDatabase('MemeDB', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'])
+        self.meme_client = MemeDatabase('UCASMemes', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'])
     
     def get_user_name(self, user: Union[discord.User, discord.Member]):
         name = self.user_cache.get_user(str(user.id))
@@ -165,32 +165,51 @@ class myClient(discord.Client):
 
         # Delete the sent message
         await sent_message.delete()
+    
+    async def reply_and_react(self, message: discord.Message, response: str):
+        await message.add_reaction('♻️')
+        await message.reply(response, mention_author=False)
 
-    def on_meme(self, message: discord.Message):
+    async def on_meme(self, message: discord.Message):
         imgs_to_add_to_db: list[Image.Image] = []
-        for embedObj in message.embeds:
-                embed = embedObj.to_dict()
-                if 'url' not in embed.keys():
+        time.sleep(2)
+        messages = [message async for message in message.channel.history(limit=50)][0]
+        for embedObj in messages.embeds:
+            # if isinstance(embedObj.image):
+                # embed = embedObj.to_dict()
+                url = embedObj.url
+                print(url)
+                if not url:
                     continue
-                url = embed['url'] # type: ignore
-                if 'thumbnail' in embed.keys():
-                    url = embed['thumbnail']['url'] # type: ignore
-                
-                if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
-                    imgs_to_add_to_db.append(Image.open(requests.get(url, stream=True).raw))
+                url = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
+                if not url:
+                    continue
+                url = url.group(1)
+                imgs_to_add_to_db.append(Image.open(requests.get(url, stream=True).raw))
             
-        for attachment in message.attachments:
+        for attachment in messages.attachments:
             if attachment.content_type == 'image/png' or attachment.content_type == 'image/jpeg':
                 imgs_to_add_to_db.append(Image.open(requests.get(attachment.url, stream=True).raw))
 
-        if imgs_to_add_to_db:
-            img_vec = (self.meme_client.format_img(img) for img in imgs_to_add_to_db)
-            status, response = self.meme_client.insert([{'MessageID': message.id, 'PixelVec': img} for img in img_vec])
-            print(response['message'])
+        if not imgs_to_add_to_db:
+            return
+        
+        img_vec = []
+        for image in imgs_to_add_to_db:
+            response = self.meme_client.query(image)[0]
+            if response['@distance'] < 1000: # type: ignore
+                print(f'Image already in database with distance {response["@distance"]}') # type: ignore
+                discord_link = f'https://discord.com/channels/{message.guild.id}/{message.channel.id}/{int(response["MessageID"])}' # type: ignore
+                await self.reply_and_react(message, f'Meme already posted {discord_link} with {1 - response["@distance"]/30_000:.2%} confidence') # type: ignore
+                continue
+            img_vec.append(self.meme_client.format_img(image))
+
+        status, response = self.meme_client.insert([{'MessageID': message.id, 'PixelVec': img} for img in img_vec])
+        print(response['message'])
 
     async def on_message(self, message: discord.Message):
         if message.channel.id == int(config[profile]['meme_channel_id']):
-            self.on_meme(message)
+            await self.on_meme(message)
         if not message.content:
             return
         content = message.content.split()
