@@ -103,12 +103,13 @@ class myClient(discord.Client):
                 content = re.sub(f'<@!?{user.id}>', name, content)
             
             for embed in message.embeds:
-                embed = embed.to_dict()
-                if 'url' not in embed.keys():
+                url = embed.url
+                if not url:
                     continue
-                url = embed['url'] # type: ignore
-                if 'thumbnail' in embed.keys():
-                    url = embed['thumbnail']['url'] # type: ignore
+                url = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
+                if not url:
+                    continue
+                url = url.group(1)
                 
                 if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
                     await self.edit_message(sent_message, f'Describing {url}')
@@ -116,6 +117,7 @@ class myClient(discord.Client):
                 else:
                     url_replacement = ""
                 
+                embed = embed.to_dict()
                 embed['url'] = re.sub(r'([(^)|*$])', r'\\\1', embed['url']) # type: ignore
                 content = re.sub(embed['url'], url_replacement, content)
                     
@@ -175,17 +177,14 @@ class myClient(discord.Client):
         time.sleep(2)
         messages = [message async for message in message.channel.history(limit=50)][0]
         for embedObj in messages.embeds:
-            # if isinstance(embedObj.image):
-                # embed = embedObj.to_dict()
-                url = embedObj.url
-                print(url)
-                if not url:
-                    continue
-                url = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
-                if not url:
-                    continue
-                url = url.group(1)
-                imgs_to_add_to_db.append(Image.open(requests.get(url, stream=True).raw))
+            url = embedObj.url
+            if not url:
+                continue
+            url = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
+            if not url:
+                continue
+            url = url.group(1)
+            imgs_to_add_to_db.append(Image.open(requests.get(url, stream=True).raw))
             
         for attachment in messages.attachments:
             if attachment.content_type == 'image/png' or attachment.content_type == 'image/jpeg':
