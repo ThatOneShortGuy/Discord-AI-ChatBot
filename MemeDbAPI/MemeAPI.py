@@ -20,17 +20,17 @@ class Database:
         )
     
     def format_img(self, img: Union[np.ndarray, Image.Image]) -> list[float]:
-        if isinstance(query_img, Image.Image):
-            query_img = np.array(query_img)
-            query_img = cv2.cvtColor(query_img, cv2.COLOR_RGB2BGR)
+        if isinstance(img, Image.Image):
+            img = np.array(img)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         
-        if query_img.shape[0] != 100 or query_img.shape[1] != 100:
-            query_img = cv2.resize(query_img, (100, 100))
+        if img.shape[0] != 100 or img.shape[1] != 100:
+            img = cv2.resize(img, (100, 100))
         
-        if query_img.dtype == np.uint8:
-            query_img = query_img / 255.0
+        if img.dtype == np.uint8:
+            img = img / 255.0
         
-        return query_img.flatten().tolist()
+        return img.flatten().tolist()
 
     
     def query(self, query_img: Union[np.ndarray, Image.Image], limit: int = 1, with_distance: bool = True) -> list[dict]:

@@ -58,11 +58,11 @@ commands = [r'(?P<command>help)',
 
 class myClient(discord.Client):
     async def on_ready(self):
-        print(f'Logged on as {self.user} ({self.user.mention})')
+        print(f'Logged on as {self.user} ({self.user.mention})') # type: ignore
         self.model_info = m.get_model_info()
         self.terminal_size = os.get_terminal_size()[0]
-        self.message_time_queue = deque(maxlen=24)
-        self.conversation_history = {} # {channel_id: conversation}
+        self.message_time_queue: deque[float] = deque(maxlen=24)
+        self.conversation_history: dict[int, str] = {} # {channel_id: conversation}
         self.keep_history = False
         self.user_cache = UserCache()
         self.meme_client = MemeDatabase('MemeDB', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'])
@@ -81,7 +81,7 @@ class myClient(discord.Client):
     async def edit_message(self, message: discord.Message, content: str, no_check=False):
         if len(self.message_time_queue) and time.time() - self.message_time_queue[0] > 60 or no_check:
             self.message_time_queue.popleft()
-        if len(self.message_time_queue) < self.message_time_queue.maxlen and (not len(self.message_time_queue) or (time.time() - self.message_time_queue[-1]) > 1.5) or no_check:
+        if len(self.message_time_queue) < self.message_time_queue.maxlen and (not len(self.message_time_queue) or (time.time() - self.message_time_queue[-1]) > 1.5) or no_check: # type: ignore
             self.message_time_queue.append(time.time())
             return await message.edit(content=content)
 
@@ -106,17 +106,17 @@ class myClient(discord.Client):
                 embed = embed.to_dict()
                 if 'url' not in embed.keys():
                     continue
-                url = embed['url']
+                url = embed['url'] # type: ignore
                 if 'thumbnail' in embed.keys():
-                    url = embed['thumbnail']['url']
+                    url = embed['thumbnail']['url'] # type: ignore
                 
                 if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
                     await self.edit_message(sent_message, f'Describing {url}')
-                    url_replacement = f"<{embed['type']}>{describe_image(url)}</{embed['type']}>"
+                    url_replacement = f"<{embed['type']}>{describe_image(url)}</{embed['type']}>" # type: ignore
                 else:
                     url_replacement = ""
                 
-                embed['url'] = re.sub(r'([(^)|*$])', r'\\\1', embed['url'])
+                embed['url'] = re.sub(r'([(^)|*$])', r'\\\1', embed['url']) # type: ignore
                 content = re.sub(embed['url'], url_replacement, content)
                     
 
@@ -147,6 +147,7 @@ class myClient(discord.Client):
         else:
             self.conversation_history[sent_message.channel.id] += next(generator).replace(self.conversation_history[sent_message.channel.id], '')
             self.keep_history = False
+        response = ''
         for response in generator:
             if re.match(r'^\s*$', response):
                 await self.edit_message(sent_message, '[Empty response]', no_check=True)
@@ -193,7 +194,7 @@ class myClient(discord.Client):
         if not message.content:
             return
         content = message.content.split()
-        if content.pop(0) != self.user.mention:
+        if content.pop(0) != self.user.mention: # type: ignore
             return
         if not content:
             return
@@ -212,11 +213,11 @@ class myClient(discord.Client):
             return
             
         if command == 'summarize':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
             return await self.send_message(m.summarize(sent_message_content), sent_message)
             
         if command == 'query':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
             return await self.send_message(m.query(sent_message_content, mat.group('text')), sent_message)
             
         if command == 'response':
@@ -230,30 +231,33 @@ class myClient(discord.Client):
             return await self.send_message(m.prompt(mat.group('text')), sent_message)
             
         if command == 'roast':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(m.roast(sent_message_content, username), sent_message)
             
         if command == 'act_like':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(m.act_like(sent_message_content, username), sent_message)
             
         if command == 'generate':
             sent_message = await message.channel.send('Generating...')
-            return await self.send_image(
-                sd.generate(
-                    mat.group('text'),
-                    img_type='waifu' if mat.group('isWaifu') else 'normal',
-                    width=512 if mat.group('isWaifu') else 512,
-                    height=512 if mat.group('isWaifu') else 512,
-                    num_inference_steps=120 if mat.group('isWaifu') else 40,
-                    neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry' if mat.group('isWaifu') else '',
-                ),
-                sent_message
-            )
+            image = sd.generate(
+                mat.group('text'),
+                img_type='waifu' if mat.group('isWaifu') else 'normal',
+                width=512 if mat.group('isWaifu') else 512,
+                height=512 if mat.group('isWaifu') else 512,
+                num_inference_steps=120 if mat.group('isWaifu') else 40,
+                neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry' if mat.group('isWaifu') else '',
+            ),
+            if isinstance(image, Image.Image):
+                return await self.send_image(
+                    image,
+                    sent_message
+                )
+            return await self.edit_message(sent_message, image) # type: ignore
 
     def get_matching_command(self, content):
         for command in commands:

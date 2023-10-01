@@ -5,6 +5,7 @@ import socket
 import time
 from configparser import ConfigParser
 import sys
+from typing import Union
 
 import requests
 from PIL import Image
@@ -45,7 +46,7 @@ def get_response(data, headers):
                 err = True
             time.sleep(5)
 
-def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, num_inference_steps=69, **kwargs):
+def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, num_inference_steps=69, **kwargs) -> Union[Image.Image, str]:
     data = json.dumps({'prompt': prompt, 'height': height, 'width': width,
                        'type': img_type, 'num_inference_steps': num_inference_steps,
                        'neg_prompt': neg_prompt, 'save': False})
@@ -60,4 +61,7 @@ def generate(prompt, neg_prompt='', img_type='normal', width=768, height=768, nu
 
 if __name__ == '__main__':
     img = generate('Mona Lisa in the style of Picaso')
-    img.show()
+    if isinstance(img, str):
+        print(img)
+    else:
+        img.show()

@@ -43,9 +43,9 @@ print(f'Max num tokens: {model.context_length}')
 @app.route('/generate', methods=['POST'])
 def generate():
     content = request.json
-    inp = content.get('text', '')
-    max_tokens = content.get('max_tokens', model.context_length)
-    peft_model = content.get('peft_model', '')
+    inp = content.get('text', '') # type: ignore
+    max_tokens = content.get('max_tokens', model.context_length) # type: ignore
+    peft_model = content.get('peft_model', '') # type: ignore
 
     inp_size = len(model.tokenize(inp))
     if inp_size > max_tokens:
@@ -59,8 +59,8 @@ def generate():
 def generate_stream():
     gc.collect()
     content = request.json
-    inp = content.get('text', '')
-    max_tokens = content.get('max_tokens', model.context_length)
+    inp = content.get('text', '') # type: ignore
+    max_tokens = content.get('max_tokens', model.context_length) # type: ignore
 
     inp_size = len(model.tokenize(inp))
 
@@ -86,7 +86,7 @@ def generate_stream():
 @app.route('/embeddings', methods=['POST'])
 def embeddings():
     content = request.json
-    inp = content.get('text', '')
+    inp = content.get('text', '') # type: ignore
 
     output = model.embed(
         inp,
@@ -112,7 +112,7 @@ def model_info():
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
-        port=config[profile]['model_server_port'],
+        port=config[profile]['model_server_port'], # type: ignore
         debug=False,
         threaded=True
     )
