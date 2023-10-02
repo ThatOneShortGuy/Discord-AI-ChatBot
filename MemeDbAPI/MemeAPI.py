@@ -9,6 +9,8 @@ from PIL import Image
 class Database:
     def __init__(self, table_name: str, host: str = '192.168.1.16', port: str = '8888'):
         self.client = vectordb.Client(host=host, port=port)
+        self.host = host
+        self.port = port
         self.client.load_db(db_name='MyDB', db_path='/tmp/epsilla')
         self.client.use_db('MyDB')
         self.table_name = table_name
@@ -45,6 +47,7 @@ class Database:
             limit=limit,
             with_distance=with_distance
         )
+
         print(response['message'])
         if status != 200:
             raise Exception(f'Query failed with status {status}')

@@ -187,8 +187,9 @@ class myClient(discord.Client):
             imgs_to_add_to_db.append(Image.open(requests.get(url, stream=True).raw))
             
         for attachment in messages.attachments:
-            if attachment.content_type == 'image/png' or attachment.content_type == 'image/jpeg':
+            if attachment.content_type and  attachment.content_type.startswith('image'):
                 imgs_to_add_to_db.append(Image.open(requests.get(attachment.url, stream=True).raw))
+            
 
         if not imgs_to_add_to_db:
             return
@@ -196,13 +197,17 @@ class myClient(discord.Client):
         img_vec = []
         for image in imgs_to_add_to_db:
             response = self.meme_client.query(image)[0]
-            if response['@distance'] < 1000: # type: ignore
-                print(f'Image already in database with distance {response["@distance"]}') # type: ignore
-                discord_link = f'https://discord.com/channels/{message.guild.id}/{message.channel.id}/{int(response["MessageID"])}' # type: ignore
-                await self.reply_and_react(message, f'Meme already posted {discord_link} with {1 - response["@distance"]/30_000:.2%} confidence') # type: ignore
+            if response['@distance'] > 1000: # type: ignore
+                print(f'Image not in database with distance {response["@distance"]}') # type: ignore
+                img_vec.append(self.meme_client.format_img(image))
                 continue
-            img_vec.append(self.meme_client.format_img(image))
+            print(f'Image already in database with distance {response["@distance"]}') # type: ignore
+            discord_link = f'https://discord.com/channels/{message.guild.id}/{message.channel.id}/{response["MessageID"]}' # type: ignore
+            await self.reply_and_react(message, f'Meme already posted {discord_link} with {1 - response["@distance"]/30_000:.2%} confidence') # type: ignore
 
+        if not img_vec:
+            return
+        
         status, response = self.meme_client.insert([{'MessageID': message.id, 'PixelVec': img} for img in img_vec])
         print(response['message'])
 
