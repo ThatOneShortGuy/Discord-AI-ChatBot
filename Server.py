@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import sys
@@ -174,7 +175,7 @@ class myClient(discord.Client):
 
     async def on_meme(self, message: discord.Message):
         imgs_to_add_to_db: list[Image.Image] = []
-        time.sleep(2)
+        await asyncio.sleep(2)
         messages = [message async for message in message.channel.history(limit=50)][0]
         for embedObj in messages.embeds:
             url = embedObj.url
@@ -208,7 +209,7 @@ class myClient(discord.Client):
         if not img_vec:
             return
         
-        status, response = self.meme_client.insert([{'MessageID': message.id, 'PixelVec': img} for img in img_vec])
+        status, response = self.meme_client.insert([{'MessageID': str(messages.id), 'PixelVec': img} for img in img_vec])
         print(response['message'])
 
     async def on_message(self, message: discord.Message):
