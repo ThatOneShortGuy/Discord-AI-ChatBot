@@ -11,3 +11,4 @@ xformers
 protobuf==4.23.4
 peft
 ctransformers
+pyepsilla
