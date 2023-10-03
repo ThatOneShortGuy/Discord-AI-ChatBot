@@ -12,7 +12,7 @@ import requests
 import torch
 from PIL import Image
 
-import LangModelAPI as m
+import LangModelAPI as LangModel
 import StableDiffusionAPI as sd
 from CaptionerAPI import describe_image
 from makeConfig import makeConfig
@@ -60,7 +60,7 @@ commands = [r'(?P<command>help)',
 class myClient(discord.Client):
     async def on_ready(self):
         print(f'Logged on as {self.user} ({self.user.mention})') # type: ignore
-        self.model_info = m.get_model_info()
+        self.model_info = LangModel.get_model_info()
         self.terminal_size = os.get_terminal_size()[0]
         self.message_time_queue: deque[float] = deque(maxlen=24)
         self.conversation_history: dict[int, str] = {} # {channel_id: conversation}
@@ -176,7 +176,7 @@ class myClient(discord.Client):
     async def on_meme(self, message: discord.Message):
         imgs_to_add_to_db: list[Image.Image] = []
         await asyncio.sleep(2)
-        messages = [message async for message in message.channel.history(limit=50)][0]
+        messages = [m async for m in message.channel.history(limit=50) if m.id == message.id][0]
         for embedObj in messages.embeds:
             url = embedObj.url
             if not url:
@@ -190,7 +190,6 @@ class myClient(discord.Client):
         for attachment in messages.attachments:
             if attachment.content_type and  attachment.content_type.startswith('image'):
                 imgs_to_add_to_db.append(Image.open(requests.get(attachment.url, stream=True).raw))
-            
 
         if not imgs_to_add_to_db:
             return
@@ -198,7 +197,7 @@ class myClient(discord.Client):
         img_vec = []
         for image in imgs_to_add_to_db:
             response = self.meme_client.query(image)[0]
-            if response['@distance'] > 1000: # type: ignore
+            if response['@distance'] > 500: # type: ignore
                 print(f'Image not in database with distance {response["@distance"]}') # type: ignore
                 img_vec.append(self.meme_client.format_img(image))
                 continue
@@ -238,33 +237,33 @@ class myClient(discord.Client):
             
         if command == 'summarize':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
-            return await self.send_message(m.summarize(sent_message_content), sent_message)
+            return await self.send_message(LangModel.summarize(sent_message_content), sent_message)
             
         if command == 'query':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
-            return await self.send_message(m.query(sent_message_content, mat.group('text')), sent_message)
+            return await self.send_message(LangModel.query(sent_message_content, mat.group('text')), sent_message)
             
         if command == 'response':
             sent_message = await message.channel.send('Working on it...')
             self.keep_history = True
             history = self.conversation_history[sent_message.channel.id] if sent_message.channel.id in self.conversation_history else None
-            return await self.send_message(m.response(history, mat.group('text')), sent_message)
+            return await self.send_message(LangModel.response(history, mat.group('text')), sent_message)
             
         if command == 'prompt':
             sent_message = await message.channel.send('Working on it...')
-            return await self.send_message(m.prompt(mat.group('text')), sent_message)
+            return await self.send_message(LangModel.prompt(mat.group('text')), sent_message)
             
         if command == 'roast':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
-            return await self.send_message(m.roast(sent_message_content, username), sent_message)
+            return await self.send_message(LangModel.roast(sent_message_content, username), sent_message)
             
         if command == 'act_like':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
-            return await self.send_message(m.act_like(sent_message_content, username), sent_message)
+            return await self.send_message(LangModel.act_like(sent_message_content, username), sent_message)
             
         if command == 'generate':
             sent_message = await message.channel.send('Generating...')
