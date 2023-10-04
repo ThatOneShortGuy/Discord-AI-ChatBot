@@ -169,8 +169,8 @@ class myClient(discord.Client):
         # Delete the sent message
         await sent_message.delete()
     
-    async def reply_and_react(self, message: discord.Message, response: str):
-        await message.add_reaction('♻️')
+    async def reply_and_react(self, reaction: str, message: discord.Message, response: str):
+        await message.add_reaction(reaction)
         await message.reply(response, mention_author=False)
 
     async def on_meme(self, message: discord.Message):
@@ -204,7 +204,7 @@ class myClient(discord.Client):
                 continue
             print(f'Image already in database with distance {response["@distance"]}') # type: ignore
             discord_link = f'https://discord.com/channels/{message.guild.id}/{message.channel.id}/{response["MessageID"]}' # type: ignore
-            await self.reply_and_react(message, f'Meme already posted {discord_link} with {confidence:.2%} confidence') # type: ignore
+            await self.reply_and_react(message, '♻️', f'Meme already posted {discord_link} with {confidence:.2%} confidence') # type: ignore
 
         if not img_vec:
             return
