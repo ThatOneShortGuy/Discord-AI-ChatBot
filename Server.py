@@ -17,7 +17,7 @@ import StableDiffusionAPI as sd
 from CaptionerAPI import describe_image
 from makeConfig import makeConfig
 from CacheUsers import UserCache
-from MemeDbAPI import MemeDatabase
+from MemeDbAPI import MemeDatabase, get_image_embedding
 
 profile = sys.argv[1] if len(sys.argv) > 1 else 'default'
 
@@ -66,7 +66,7 @@ class myClient(discord.Client):
         self.conversation_history: dict[int, str] = {} # {channel_id: conversation}
         self.keep_history = False
         self.user_cache = UserCache()
-        self.meme_client = MemeDatabase('UCASMemes', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'])
+        self.meme_client = MemeDatabase('UCASEmbeddings', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'], processing_function=get_image_embedding)
     
     def get_user_name(self, user: Union[discord.User, discord.Member]):
         name = self.user_cache.get_user(str(user.id))
@@ -197,13 +197,14 @@ class myClient(discord.Client):
         img_vec = []
         for image in imgs_to_add_to_db:
             response = self.meme_client.query(image)[0]
-            if response['@distance'] > 500: # type: ignore
-                print(f'Image not in database with distance {response["@distance"]}') # type: ignore
+            confidence = 1 - response['@distance']
+            if confidence < .98:
+                print(f'Image not in database with distance {response["@distance"]} ({confidence:.2%} confidence)') # type: ignore
                 img_vec.append(self.meme_client.format_img(image))
                 continue
             print(f'Image already in database with distance {response["@distance"]}') # type: ignore
             discord_link = f'https://discord.com/channels/{message.guild.id}/{message.channel.id}/{response["MessageID"]}' # type: ignore
-            await self.reply_and_react(message, f'Meme already posted {discord_link} with {1 - response["@distance"]/30_000:.2%} confidence') # type: ignore
+            await self.reply_and_react(message, f'Meme already posted {discord_link} with {confidence:.2%} confidence') # type: ignore
 
         if not img_vec:
             return
