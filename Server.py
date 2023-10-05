@@ -169,7 +169,7 @@ class myClient(discord.Client):
         # Delete the sent message
         await sent_message.delete()
     
-    async def reply_and_react(self, reaction: str, message: discord.Message, response: str):
+    async def reply_and_react(self, message: discord.Message, reaction: str, response: str):
         await message.add_reaction(reaction)
         await message.reply(response, mention_author=False)
 
@@ -198,7 +198,7 @@ class myClient(discord.Client):
         for image in imgs_to_add_to_db:
             response = self.meme_client.query(image)[0]
             confidence = 1 - response['@distance']
-            if confidence < .98:
+            if confidence < .69:
                 print(f'Image not in database with distance {response["@distance"]} ({confidence:.2%} confidence)') # type: ignore
                 img_vec.append(self.meme_client.format_img(image))
                 continue
