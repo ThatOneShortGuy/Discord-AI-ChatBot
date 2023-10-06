@@ -170,7 +170,10 @@ class myClient(discord.Client):
         await sent_message.delete()
     
     async def reply_and_react(self, message: discord.Message, reaction: str, response: str):
-        await message.add_reaction(reaction)
+        try:
+            await message.add_reaction(reaction)
+        except discord.errors.Forbidden:
+            response = f'{reaction} {response}'
         await message.reply(response, mention_author=False)
 
     async def on_meme(self, message: discord.Message):
