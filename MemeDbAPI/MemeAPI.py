@@ -23,15 +23,28 @@ def get_image_embedding(image: np.ndarray) -> list[float]:
         outputs = model(**inputs)
     return outputs.image_embeds.cpu().numpy()[0].tolist()
 
+def get_text_embedding(text: str) -> list[float]:
+    with torch.no_grad():
+        inputs = processor(text=text, return_tensors="pt", padding=True)
+        inputs = inputs.to(device)
+        outputs = model.get_text_features(**inputs) # type: ignore
+    return outputs.cpu().numpy()[0].tolist()
+
 class Database:
-    def __init__(self, table_name: str, host: str = '192.168.1.16', port: str = '8888', processing_function: Optional[Callable[[np.ndarray], list[float]]] = None):
+    def __init__(self,
+                 table_name: str,
+                 host: str = '192.168.1.16',
+                 port: str = '8888',
+                 img_processing_function: Callable[[np.ndarray], list[float]] = get_image_embedding,
+                 str_processing_function: Callable[[str], list[float]] = get_text_embedding):
         self.client = vectordb.Client(host=host, port=port)
         self.host = host
         self.port = port
         self.client.load_db(db_name='MyDB', db_path='/tmp/epsilla')
         self.client.use_db('MyDB')
         self.table_name = table_name
-        self.processing_function = processing_function
+        self.img_processing_function = img_processing_function
+        self.str_processing_function = str_processing_function
     
     def insert(self, records: list[dict]):
         return self.client.insert(
@@ -44,22 +57,32 @@ class Database:
             img = np.array(img)
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         
-        if self.processing_function:
-            return self.processing_function(img)
+        if self.img_processing_function:
+            return self.img_processing_function(img)
         
-        if img.shape[0] != 100 or img.shape[1] != 100:
-            img = cv2.resize(img, (100, 100))
-        
-        if img.dtype == np.uint8:
-            img = img / 255.0
-        
-        return img.flatten().tolist()
+        return img.tolist()
 
+    def format_text(self, text: str) -> list[float]:
+        return self.str_processing_function(text)
     
-    def query(self, query_img: Union[np.ndarray, Image.Image], limit: int = 1, with_distance: bool = True) -> list[dict]:
-        query_field = 'PixelVec'
-        
+    def query(self, query_value: Union[str, np.ndarray, Image.Image], limit: int = 1, with_distance: bool = True) -> list[dict]:
+        if isinstance(query_value, str):
+            return self.query_text(query_value, limit=limit, with_distance=with_distance)
+        elif isinstance(query_value, np.ndarray) or isinstance(query_value, Image.Image):
+            return self.query_img(query_value, limit=limit, with_distance=with_distance)
+        else:
+            raise Exception(f'Invalid query type: {type(query_value)}')
+
+    def query_text(self, query_text: str, limit: int = 1, with_distance: bool = True) -> list[dict]:
+        query_value: list[float] = self.format_text(query_text)
+        return self._query(query_value=query_value, limit=limit, with_distance=with_distance)
+    
+    def query_img(self, query_img: Union[np.ndarray, Image.Image], limit: int = 1, with_distance: bool = True) -> list[dict]:
         query_value: list[float] = self.format_img(query_img)
+        return self._query(query_value=query_value, limit=limit, with_distance=with_distance)
+    
+    def _query(self, query_value: list[float], limit: int = 1, with_distance: bool = True) -> list[dict]:
+        query_field = 'PixelVec'
 
         status, response = self.client.query(
             table_name=self.table_name,
