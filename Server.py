@@ -47,6 +47,7 @@ help_text = """Commands:
 
     Image operations:
     `generate [-waifu] <...>` - generate an image with the given prompt (normal Stable Diffusion) or waifu (hakurei/waifu-diffusion) if `-waifu` flag is set
+    `find_meme [n] <...>` - find a meme by text. `n` is the max number of results to return (default 5)
     """
 commands = [r'(?P<command>help)',
             r'(?P<command>summarize)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
@@ -55,7 +56,8 @@ commands = [r'(?P<command>help)',
             r'(?P<command>prompt)\s+(?P<text>.+)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
-            r'(?P<command>generate)\s+(?P<isWaifu>\-waifu)?\s*(?P<text>.+)']
+            r'(?P<command>generate)\s+(?P<isWaifu>\-waifu)?\s+(?P<text>.+)',
+            r'(?P<command>find_meme)\s+(?P<n>\d+)?\s*(?P<text>.+)']
 
 class myClient(discord.Client):
     async def on_ready(self):
@@ -66,7 +68,11 @@ class myClient(discord.Client):
         self.conversation_history: dict[int, str] = {} # {channel_id: conversation}
         self.keep_history = False
         self.user_cache = UserCache()
-        self.meme_client = MemeDatabase('UCASEmbeddings', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'], processing_function=get_image_embedding)
+        try:
+            self.meme_client = MemeDatabase('UCASEmbeddings', config[profile]['MemeDB_ip'], config[profile]['MemeDB_port'])
+        except Exception as e:
+            print('Could not connect to MemeDB because of error:', e)
+            self.meme_client = None
     
     def get_user_name(self, user: Union[discord.User, discord.Member]):
         name = self.user_cache.get_user(str(user.id))
@@ -80,7 +86,7 @@ class myClient(discord.Client):
         return name
     
     async def edit_message(self, message: discord.Message, content: str, no_check=False):
-        if len(self.message_time_queue) and time.time() - self.message_time_queue[0] > 60 or no_check:
+        if len(self.message_time_queue) and (time.time() - self.message_time_queue[0] > 60 or no_check):
             self.message_time_queue.popleft()
         if len(self.message_time_queue) < self.message_time_queue.maxlen and (not len(self.message_time_queue) or (time.time() - self.message_time_queue[-1]) > 1.5) or no_check: # type: ignore
             self.message_time_queue.append(time.time())
@@ -177,6 +183,8 @@ class myClient(discord.Client):
         await message.reply(response, mention_author=False)
 
     async def on_meme(self, message: discord.Message):
+        if not self.meme_client:
+            return
         imgs_to_add_to_db: list[Image.Image] = []
         await asyncio.sleep(2)
         messages = [m async for m in message.channel.history(limit=50) if m.id == message.id][0]
@@ -285,6 +293,20 @@ class myClient(discord.Client):
                     sent_message
                 )
             return await self.edit_message(sent_message, image) # type: ignore
+        
+        if command == 'find_meme':
+            if not self.meme_client:
+                return await message.channel.send('MemeDB not connected')
+            sent_message = await message.channel.send('Searching...')
+            results = self.meme_client.query(mat.group('text'), limit=int(mat.group('n')) if mat.group('n') else 5)
+            if not results:
+                return await self.edit_message(sent_message, 'No results found')
+            results = set(int(response['MessageID']) for response in results)
+            links = [f'{i+1}. https://discord.com/channels/{message.guild.id}/{config[profile]["meme_channel_id"]}/{m_id}' for i, m_id in enumerate(results)] # type: ignore
+            links = '\n'.join(links)
+            links = 'Here are the results:\n' + links
+            return await self.edit_message(sent_message, links, True)
+
 
     def get_matching_command(self, content):
         for command in commands:
