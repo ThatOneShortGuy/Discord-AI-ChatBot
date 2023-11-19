@@ -9,7 +9,6 @@ from typing import Union
 
 import discord
 import requests
-import torch
 from PIL import Image
 
 import LangModelAPI as LangModel
@@ -56,7 +55,7 @@ commands = [r'(?P<command>help)',
             r'(?P<command>prompt)\s+(?P<text>.+)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
-            r'(?P<command>generate)\s+(?P<isWaifu>\-waifu)?\s+(?P<text>.+)',
+            r'(?P<command>generate)\s*(?P<isWaifu>\-waifu)?\s+(?P<text>.+)',
             r'(?P<command>find_meme)\s+(?P<n>\d+)?\s*(?P<text>.+)']
 
 class myClient(discord.Client):
@@ -167,7 +166,7 @@ class myClient(discord.Client):
         self.conversation_history[sent_message.channel.id] += f'{response}{self.model_info["end_token"]}\n'
         return await self.edit_message(sent_message, response, no_check=True)
     
-    async def send_image(self, image: Image.Image, sent_message):
+    async def send_image(self, image: Image.Image, sent_message: discord.Message):
         image.save('temp.jpg', quality=95, subsampling=0)
         discord_image = discord.File('temp.jpg')
         await sent_message.channel.send(file=discord_image, silent=True)
@@ -180,12 +179,14 @@ class myClient(discord.Client):
             await message.add_reaction(reaction)
         except discord.errors.Forbidden:
             response = f'{reaction} {response}'
-        await message.reply(response, mention_author=False)
+        # await message.reply(response, mention_author=False)
 
     async def on_meme(self, message: discord.Message):
         if not self.meme_client:
             return
         imgs_to_add_to_db: list[Image.Image] = []
+        from random import randint
+        # await asyncio.sleep(randint(60, 300))
         await asyncio.sleep(2)
         messages = [m async for m in message.channel.history(limit=50) if m.id == message.id][0]
         for embedObj in messages.embeds:
@@ -215,6 +216,7 @@ class myClient(discord.Client):
                 continue
             print(f'Image already in database with distance {response["@distance"]}') # type: ignore
             discord_link = f'https://discord.com/channels/{message.guild.id}/{message.channel.id}/{response["MessageID"]}' # type: ignore
+            print(discord_link)
             await self.reply_and_react(message, '♻️', f'Meme already posted {discord_link} with {confidence:.2%} confidence') # type: ignore
 
         if not img_vec:
@@ -279,7 +281,7 @@ class myClient(discord.Client):
             
         if command == 'generate':
             sent_message = await message.channel.send('Generating...')
-            image = sd.generate(
+            img = sd.generate(
                 mat.group('text'),
                 img_type='waifu' if mat.group('isWaifu') else 'normal',
                 width=512 if mat.group('isWaifu') else 512,
@@ -287,12 +289,14 @@ class myClient(discord.Client):
                 num_inference_steps=120 if mat.group('isWaifu') else 40,
                 neg_prompt='lowres, bad_anatomy, error_body, error_hair, error_arm, error_hands, bad_hands, error_fingers, bad_fingers, missing_fingers, error_legs, bad_legs, multiple_legs, missing_legs, error_lighting, error_shadow, error_reflection, text, error, extra_digit, fewer_digits, cropped, worst_quality, low_quality, normal_quality, jpeg_artifacts, signature, watermark, username, blurry' if mat.group('isWaifu') else '',
             ),
-            if isinstance(image, Image.Image):
+            print(img)
+            if isinstance(img, str):
+                return await self.edit_message(sent_message, image) # type: ignore
+            else:
                 return await self.send_image(
-                    image,
+                    img[0],
                     sent_message
                 )
-            return await self.edit_message(sent_message, image) # type: ignore
         
         if command == 'find_meme':
             if not self.meme_client:

@@ -33,7 +33,7 @@ def get_text_embedding(text: str) -> list[float]:
 class Database:
     def __init__(self,
                  table_name: str,
-                 host: str = '192.168.1.16',
+                 host: str = '192.168.1.19',
                  port: str = '8888',
                  img_processing_function: Callable[[np.ndarray], list[float]] = get_image_embedding,
                  str_processing_function: Callable[[str], list[float]] = get_text_embedding):

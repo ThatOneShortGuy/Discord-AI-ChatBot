@@ -30,6 +30,8 @@ MODEL_NAME = "TheBloke/CodeLlama-13B-oasst-sft-v10-GGUF"
 
 tokenizer = AutoTokenizer.from_pretrained(config[profile]['language_model'])
 
+print(f'Loading model: {MODEL_NAME}')
+
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     model_file="codellama-13b-oasst-sft-v10.Q4_K_M.gguf",
@@ -51,7 +53,7 @@ def generate():
     if inp_size > max_tokens:
         return jsonify({'generated_text': f'Input too long ({inp_size} > {max_tokens})'})
 
-    output = model(inp, max_new_tokens=inp_size-max_tokens, stop=[tokenizer.eos_token, tokenizer.bos_token], threads=1, batch_size=512)
+    output = model(inp, max_new_tokens=max_tokens-inp_size, stop=[tokenizer.eos_token, tokenizer.bos_token], threads=1, batch_size=512)
 
     return jsonify({'generated_text': output})
 
