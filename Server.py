@@ -8,6 +8,7 @@ from configparser import ConfigParser
 from typing import Union
 
 import discord
+from discord.errors import HTTPException
 import requests
 from PIL import Image
 
@@ -50,13 +51,13 @@ help_text = """Commands:
     """
 commands = [r'(?P<command>help)',
             r'(?P<command>summarize)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
-            r'(?P<command>query)\s+(?P<n>\d+)(?:\s+(?P<n2>\d+))?\s+(?P<text>.+)',
-            r'(?P<command>response)\s+(?P<text>.+)',
-            r'(?P<command>prompt)\s+(?P<text>.+)',
+            r'(?P<command>query)\s+(?P<n>\d+)(?:\s+(?P<n2>\d+))?\s+(?P<text>(?:.|\s)+)',
+            r'(?P<command>response)\s+(?P<text>(?:.|\s)+)',
+            r'(?P<command>prompt)\s+(?P<text>(?:.|\s)+)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
-            r'(?P<command>generate)\s*(?P<isWaifu>\-waifu)?\s+(?P<text>.+)',
-            r'(?P<command>find_meme)\s+(?P<n>\d+)?\s*(?P<text>.+)']
+            r'(?P<command>generate)\s*(?P<isWaifu>\-waifu)?\s+(?P<text>(?:.|\s)+)',
+            r'(?P<command>find_meme)\s+(?P<n>\d+)?\s*(?P<text>(?:.|\s)+)']
 
 class myClient(discord.Client):
     async def on_ready(self):
@@ -89,7 +90,12 @@ class myClient(discord.Client):
             self.message_time_queue.popleft()
         if len(self.message_time_queue) < self.message_time_queue.maxlen and (not len(self.message_time_queue) or (time.time() - self.message_time_queue[-1]) > 1.5) or no_check: # type: ignore
             self.message_time_queue.append(time.time())
-            return await message.edit(content=content)
+            try:
+                return await message.edit(content=content)
+            except HTTPException as e:
+                print(e)
+                return await message.channel.send('Message too long to continue editing', silent=True)
+                
 
     async def format_messages(self, content, message: discord.Message, n, n2='0'):
         if not n.isdigit():
@@ -117,13 +123,13 @@ class myClient(discord.Client):
                     continue
                 url = url.group(1)
                 
+                embed = embed.to_dict()
                 if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
                     await self.edit_message(sent_message, f'Describing {url}')
                     url_replacement = f"<{embed['type']}>{describe_image(url)}</{embed['type']}>" # type: ignore
                 else:
                     url_replacement = ""
                 
-                embed = embed.to_dict()
                 embed['url'] = re.sub(r'([(^)|*$])', r'\\\1', embed['url']) # type: ignore
                 content = re.sub(embed['url'], url_replacement, content)
                     
@@ -157,11 +163,14 @@ class myClient(discord.Client):
             self.keep_history = False
         response = ''
         for response in generator:
-            if re.match(r'^\s*$', response):
-                await self.edit_message(sent_message, '[Empty response]', no_check=True)
-                continue
-            await self.edit_message(sent_message, response)
-            print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
+            try:
+                if re.match(r'^\s*$', response):
+                    await self.edit_message(sent_message, '[Empty response]', no_check=True)
+                    continue
+                await self.edit_message(sent_message, response)
+                print(response.split('\n')[-1][-self.terminal_size:], end='\r\r')
+            except:
+                break
         print()
         self.conversation_history[sent_message.channel.id] += f'{response}{self.model_info["end_token"]}\n'
         return await self.edit_message(sent_message, response, no_check=True)
@@ -185,7 +194,7 @@ class myClient(discord.Client):
         if not self.meme_client:
             return
         imgs_to_add_to_db: list[Image.Image] = []
-        from random import randint
+        # from random import randint
         # await asyncio.sleep(randint(60, 300))
         await asyncio.sleep(2)
         messages = [m async for m in message.channel.history(limit=50) if m.id == message.id][0]
@@ -230,11 +239,13 @@ class myClient(discord.Client):
             await self.on_meme(message)
         if not message.content:
             return
-        content = message.content.split()
+        content = message.content.split(' ')
+
         if content.pop(0) != self.user.mention: # type: ignore
             return
         if not content:
             return
+        
         mentions = {user.id: self.get_user_name(user) for user in message.mentions}
         content = ' '.join(content)
 
@@ -311,8 +322,7 @@ class myClient(discord.Client):
             links = 'Here are the results:\n' + links
             return await self.edit_message(sent_message, links, True)
 
-
-    def get_matching_command(self, content):
+    def get_matching_command(self, content: str):
         for command in commands:
             if mat:=re.match(command, content):
                 return mat
