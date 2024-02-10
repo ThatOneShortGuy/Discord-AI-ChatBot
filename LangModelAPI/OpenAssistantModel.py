@@ -148,6 +148,10 @@ def prompt(input):
     for response in stream_chat(system, None, input, peft_model=peft_model):
         yield response
 
+def raw(input, max_tokens=4000):
+    for response in stream_chat(None, None, None, custom_input=input, max_tokens=max_tokens):
+        yield response
+
 def roast(prefix, person):
     system = f'''You are in a roast battle with {person}. Roasting is:
 - A verbal fight

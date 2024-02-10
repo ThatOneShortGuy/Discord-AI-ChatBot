@@ -42,6 +42,7 @@ help_text = """Commands:
     `query <n> [n2] <...>` - query the chatbot with the given text, optionally skipping the last n2 messages. Ex: `query 10 2 What conclusions can we draw from this?`
     `response <...>` - respond to the chatbot with the given text
     `prompt <...>` - prompt the bare chatbot with the given text
+    `raw [n] [n2] <...>` - use the raw language model without user/agent tokens. `n`, `n2` optional.
     `roast <user_name> <n> [n2]` - roast the user with the given name using the context from the past n messages, optionally skipping the last n2 messages (Doesn't work well. Better prompt engineering needed)
     `act_like <user_name> <n> [n2]` - act like the user with the given name and respond as them. n is the number of messages for context, optionally skipping the last n2 messages
 
@@ -54,6 +55,7 @@ commands = [r'(?P<command>help)',
             r'(?P<command>query)\s+(?P<n>\d+)(?:\s+(?P<n2>\d+))?\s+(?P<text>(?:.|\s)+)',
             r'(?P<command>response)\s+(?P<text>(?:.|\s)+)',
             r'(?P<command>prompt)\s+(?P<text>(?:.|\s)+)',
+            r'(?P<command>raw)\s*(?P<n>\d+)?\s*(?P<n2>\d+)?\s+(?P<text>(?:.|\s)+)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>generate)\s*(?P<isWaifu>\-waifu)?\s+(?P<text>(?:.|\s)+)',
@@ -93,14 +95,14 @@ class myClient(discord.Client):
             try:
                 return await message.edit(content=content)
             except HTTPException as e:
-                print(e)
-                return await message.channel.send('Message too long to continue editing', silent=True)
-                
+                await message.channel.send('Message too long to continue editing', silent=True)
+                raise e
 
-    async def format_messages(self, content, message: discord.Message, n, n2='0'):
-        if not n.isdigit():
-            return
-        n2 = int(n2) if isinstance(n2, str) and n2.isdigit() else 0
+    async def format_messages(self, content, message: discord.Message, n: str, _n2: str = '0') -> tuple[discord.Message, str]:
+        if n is None or not n.isdigit():
+            return await message.channel.send('Working on it...', silent=True), '[Empty response]'
+        
+        n2: int = int(_n2) if isinstance(_n2, str) and _n2.isdigit() else 0
         sent_message_content = ''
         messages = message.channel.history(limit=int(n)+1)
         messages = [message async for message in messages][:n2:-1]
@@ -133,13 +135,11 @@ class myClient(discord.Client):
                 embed['url'] = re.sub(r'([(^)|*$])', r'\\\1', embed['url']) # type: ignore
                 content = re.sub(embed['url'], url_replacement, content)
                     
-
             if message.attachments:
                 for attachment in message.attachments:
                     if attachment.content_type == 'image/png' or attachment.content_type == 'image/jpeg':
                         await sent_message.edit(content=f'Analyzing {attachment.url}\n{message_num+1}/{num_messages} ({(message_num+1)/num_messages:.2%}) messages')
                         content += f"<{attachment.content_type}>{describe_image(attachment.url)}</{attachment.content_type}>"
-
 
             name = self.get_user_name(message.author)
             if content and previous_author != name:
@@ -261,11 +261,11 @@ class myClient(discord.Client):
             return
             
         if command == 'summarize':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             return await self.send_message(LangModel.summarize(sent_message_content), sent_message)
             
         if command == 'query':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             return await self.send_message(LangModel.query(sent_message_content, mat.group('text')), sent_message)
             
         if command == 'response':
@@ -277,15 +277,19 @@ class myClient(discord.Client):
         if command == 'prompt':
             sent_message = await message.channel.send('Working on it...')
             return await self.send_message(LangModel.prompt(mat.group('text')), sent_message)
+        
+        if command == 'raw':
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
+            return await self.send_message(LangModel.raw(mat.group('text')), sent_message)
             
         if command == 'roast':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(LangModel.roast(sent_message_content, username), sent_message)
             
         if command == 'act_like':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2')) # type: ignore
+            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
             username = re.sub(r'<@!?(\d+)>', r'\1', mat.group('user'))
             username = mentions[int(username)] if username.isdigit() else username
             return await self.send_message(LangModel.act_like(sent_message_content, username), sent_message)
@@ -302,7 +306,7 @@ class myClient(discord.Client):
             ),
             print(img)
             if isinstance(img, str):
-                return await self.edit_message(sent_message, image) # type: ignore
+                return await self.edit_message(sent_message, img)
             else:
                 return await self.send_image(
                     img[0],
