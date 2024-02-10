@@ -5,6 +5,7 @@ import time
 from configparser import ConfigParser
 from pprint import pprint
 from threading import Thread
+from typing import Union
 
 from flask import Flask, Response, jsonify, request
 
@@ -38,6 +39,7 @@ def generate():
     content = request.json
     inp: str = content.get('text', '') # type: ignore
     max_tokens = content.get('max_tokens', model.max_context_size) # type: ignore
+    max_new_tokens: Union[int, None] = content.get('max_new_tokens', None) # type: ignore
     peft_model = content.get('peft_model', '') # type: ignore
 
     while isgen:
@@ -45,6 +47,10 @@ def generate():
 
     isgen = True
     inp_size = len(model.tokenize(inp))
+
+    if max_new_tokens:
+        max_tokens = inp_size + max_new_tokens
+
     if inp_size > max_tokens:
         isgen = False
         return jsonify({'generated_text': f'Input too long ({inp_size} > {max_tokens})'})
@@ -60,6 +66,7 @@ def generate_stream():
     content = request.json
     inp: str = content.get('text', '') # type: ignore
     max_tokens: int = content.get('max_tokens', model.max_context_size) # type: ignore
+    max_new_tokens: Union[int, None] = content.get('max_new_tokens', None) # type: ignore
     stream_all = content.get('stream_all', True) # type: ignore
 
     for _ in range(35):
@@ -70,6 +77,9 @@ def generate_stream():
     isgen = True
 
     inp_size = len(model.tokenize(inp))
+
+    if max_new_tokens:
+        max_tokens = inp_size + max_new_tokens
 
     # Stream the generated output
     def generate():
@@ -88,11 +98,13 @@ def generate_stream():
             yield f"Generating from {inp_size} tokens... This may take a while."
         text = ''
         for g in gen:
+            isgen = False
             if stream_all:
                 text += g
                 yield text
             else:
                 yield g
+            isgen = True
         isgen = False
 
     return Response(generate(), mimetype='text/plain')

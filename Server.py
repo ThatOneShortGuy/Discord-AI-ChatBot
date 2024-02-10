@@ -42,7 +42,7 @@ help_text = """Commands:
     `query <n> [n2] <...>` - query the chatbot with the given text, optionally skipping the last n2 messages. Ex: `query 10 2 What conclusions can we draw from this?`
     `response <...>` - respond to the chatbot with the given text
     `prompt <...>` - prompt the bare chatbot with the given text
-    `raw [n] [n2] <...>` - use the raw language model without user/agent tokens. `n`, `n2` optional.
+    `raw [n] <...>` - use the raw language model without user/agent tokens. `n` is the number of tokens to generate (default 4000)
     `roast <user_name> <n> [n2]` - roast the user with the given name using the context from the past n messages, optionally skipping the last n2 messages (Doesn't work well. Better prompt engineering needed)
     `act_like <user_name> <n> [n2]` - act like the user with the given name and respond as them. n is the number of messages for context, optionally skipping the last n2 messages
 
@@ -55,7 +55,7 @@ commands = [r'(?P<command>help)',
             r'(?P<command>query)\s+(?P<n>\d+)(?:\s+(?P<n2>\d+))?\s+(?P<text>(?:.|\s)+)',
             r'(?P<command>response)\s+(?P<text>(?:.|\s)+)',
             r'(?P<command>prompt)\s+(?P<text>(?:.|\s)+)',
-            r'(?P<command>raw)\s*(?P<n>\d+)?\s*(?P<n2>\d+)?\s+(?P<text>(?:.|\s)+)',
+            r'(?P<command>raw)\s+(?P<n>\d+)?\s+(?P<text>(?:.|\s)+)',
             r'(?P<command>roast)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>act_like)\s+(?P<user>[^\s]+)\s+(?P<n>\d+)(?:\s+(?P<n2>\d*))?',
             r'(?P<command>generate)\s*(?P<isWaifu>\-waifu)?\s+(?P<text>(?:.|\s)+)',
@@ -279,8 +279,11 @@ class myClient(discord.Client):
             return await self.send_message(LangModel.prompt(mat.group('text')), sent_message)
         
         if command == 'raw':
-            sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))
-            return await self.send_message(LangModel.raw(mat.group('text')), sent_message)
+            sent_message = await message.channel.send('Working on it...')
+            if not mat.group('n') and not mat.group('n').isdigit():
+                return await self.edit_message(sent_message, 'n must be a number')
+            n = int(mat.group('n')) if mat.group('n') else 4000
+            return await self.send_message(LangModel.raw(mat.group('text'), max_new_tokens=n), sent_message)
             
         if command == 'roast':
             sent_message, sent_message_content = await self.format_messages(content, message, mat.group('n'), mat.group('n2'))

@@ -88,7 +88,7 @@ def chat(prompt, max_tokens=8192):
     response = make_request(GEN_URL, data=data, headers=headers)
     return response.json()['generated_text']
 
-def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=None, peft_model=''):
+def stream_chat(system_input, prefix_input, input, history=None, custom_input=None, max_tokens=None, peft_model='', max_new_tokens=None):
     system = System(system_input)
     prefix = Prefix(prefix_input)
     prompter = Prompter(input)
@@ -100,6 +100,8 @@ def stream_chat(system_input, prefix_input, input, history=None, custom_input=No
     data = {'text': input, 'peft_model': peft_model}
     if max_tokens is not None:
         data['max_tokens'] = max_tokens
+    if max_new_tokens is not None:
+        data['max_new_tokens'] = max_new_tokens
     data = json.dumps(data)
     headers = {'content-type': 'application/json'}
     # Stream the generated output
@@ -148,8 +150,8 @@ def prompt(input):
     for response in stream_chat(system, None, input, peft_model=peft_model):
         yield response
 
-def raw(input, max_tokens=4000):
-    for response in stream_chat(None, None, None, custom_input=input, max_tokens=max_tokens):
+def raw(input, max_new_tokens=4000):
+    for response in stream_chat(None, None, None, custom_input=input, max_new_tokens=max_new_tokens):
         yield response
 
 def roast(prefix, person):
