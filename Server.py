@@ -120,13 +120,13 @@ class myClient(discord.Client):
                 url = embed.url
                 if not url:
                     continue
-                url = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
-                if not url:
+                nurl = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
+                if not nurl:
                     continue
-                url = url.group(1)
+                url, extension = nurl.group(0), nurl.group(2)
                 
                 embed = embed.to_dict()
-                if url.endswith('.png') or url.endswith('.jpg') or url.endswith('.jpeg'):
+                if extension in ('png', 'jpg', 'jpeg'):
                     await self.edit_message(sent_message, f'Describing {url}')
                     url_replacement = f"<{embed['type']}>{describe_image(url)}</{embed['type']}>" # type: ignore
                 else:
@@ -202,10 +202,10 @@ class myClient(discord.Client):
             url = embedObj.url
             if not url:
                 continue
-            url = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
-            if not url:
+            nurl = re.match(r'^(.+\.((png)|(jpg)|(jpeg))).*', url)
+            if not nurl:
                 continue
-            url = url.group(1)
+            url, extension = nurl.group(0), nurl.group(2)
             imgs_to_add_to_db.append(Image.open(requests.get(url, stream=True).raw))
             
         for attachment in messages.attachments:
@@ -320,7 +320,7 @@ class myClient(discord.Client):
             if not self.meme_client:
                 return await message.channel.send('MemeDB not connected')
             sent_message = await message.channel.send('Searching...')
-            results = self.meme_client.query(mat.group('text'), limit=int(mat.group('n')) if mat.group('n') else 5)
+            results = self.meme_client.query(mat.group('text') + ' meme', limit=int(mat.group('n')) if mat.group('n') else 5)
             if not results:
                 return await self.edit_message(sent_message, 'No results found')
             results = set(int(response['MessageID']) for response in results)

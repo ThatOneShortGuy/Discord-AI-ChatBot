@@ -9,8 +9,8 @@ from PIL import Image
 from pyepsilla import vectordb
 from transformers import CLIPModel, CLIPProcessor
 
-model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,6 +23,13 @@ def get_image_embedding(image: np.ndarray) -> list[float]:
         outputs = model(**inputs)
     return outputs.image_embeds.cpu().numpy()[0].tolist()
 
+def get_images_embedding(images: list[np.ndarray]) -> list[list[float]]:
+    with torch.no_grad():
+        inputs = processor(text='', images=images, return_tensors="pt", padding=True)
+        inputs = inputs.to(device)
+        outputs = model(**inputs)
+    return outputs.image_embeds.cpu().numpy().tolist()
+
 def get_text_embedding(text: str) -> list[float]:
     with torch.no_grad():
         inputs = processor(text=text, return_tensors="pt", padding=True)
@@ -33,7 +40,7 @@ def get_text_embedding(text: str) -> list[float]:
 class Database:
     def __init__(self,
                  table_name: str,
-                 host: str = '192.168.1.19',
+                 host: str = '192.168.1.6',
                  port: str = '8888',
                  img_processing_function: Callable[[np.ndarray], list[float]] = get_image_embedding,
                  str_processing_function: Callable[[str], list[float]] = get_text_embedding):
@@ -92,8 +99,8 @@ class Database:
             with_distance=with_distance
         )
 
-        print(response['message'])
+        print(f"\033[31m{response['message']}\033[0m")
         if status != 200:
-            raise Exception(f'Query failed with status {status}')
+            raise Exception(f'Meme Query failed with status {status}')
         
         return response['result']
